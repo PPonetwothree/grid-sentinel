@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grid Sentinel · Live Substation</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/gs.css">
+<style>
+  .sim { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+  @media (max-width: 1020px) { .sim { grid-template-columns: 1fr; } }
+  .scen { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 1100px) { .scen { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .scen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .scen .btn.start { border-color: var(--accent); }
+  .scen .btn.start::after { content: "Start here"; font: 600 .62rem var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent-ink); }
+  .scen .btn { justify-content: flex-start; text-align: left; flex-direction: column; align-items: flex-start; gap: 2px; padding: 9px 11px; }
+  .scen .btn small { color: var(--ink-3); font-size: .74rem; }
+  .scen .btn.sel small { color: var(--ink-2); }
+  .yard-box { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; box-shadow: var(--shadow); position: relative; }
+  .yard-box svg { display: block; width: 100%; height: auto; }
+  .clock { position: absolute; top: 14px; right: 16px; font: 600 1.05rem var(--f-mono); background: var(--ink); color: var(--bg); padding: 4px 9px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+  .yard-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .76rem; color: var(--ink-2); padding: 6px 6px 2px; }
+  .yard-legend i { display: inline-block; width: 12px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+  .steps { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+  @media (max-width: 700px) { .steps { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .step { border: 1px solid var(--line); border-radius: 4px; padding: 6px 6px 5px; font-size: .72rem; line-height: 1.25; color: var(--ink-3); background: var(--panel); min-height: 50px; }
+  .step b { display: block; font: 600 .66rem var(--f-mono); letter-spacing: .05em; }
+  .step.active { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+  .step.pass { border-color: var(--ok); color: var(--ink); background: var(--ok-bg); }
+  .step.stop { border-color: var(--ink-3); color: var(--ink); background: var(--panel-2); }
+  .step.fail { border-color: var(--crit); color: var(--ink); background: var(--crit-bg); }
+  .console { display: grid; gap: var(--s-3); }
+  .console .panel { padding: var(--s-4); }
+  .gauge { position: relative; height: 14px; border-radius: 7px; background: var(--panel-2); overflow: visible; }
+  .gauge .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 7px; background: var(--live); transition: width .6s ease, background .3s; }
+  .gauge .thr { position: absolute; top: -5px; bottom: -5px; width: 2px; background: var(--ink); }
+  .gauge .thr span { position: absolute; top: -17px; left: -18px; font: 500 .66rem var(--f-mono); color: var(--ink-2); white-space: nowrap; }
+  .contrib { display: grid; gap: 6px; margin-top: 10px; font-size: .8rem; }
+  .contrib div { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; }
+  .contrib .bar { height: 6px; border-radius: 3px; background: var(--panel-2); position: relative; grid-column: 1 / -1; }
+  .contrib .bar i { position: absolute; inset: 0 auto 0 0; background: var(--ink-3); border-radius: 3px; }
+  .checks { display: grid; gap: 5px; font-size: .82rem; }
+  .checks div { display: flex; gap: 8px; align-items: baseline; }
+  .checks .ic { font: 700 .8rem var(--f-mono); width: 16px; flex: none; }
+  .checks .ok { color: var(--ok); } .checks .no { color: var(--crit); } .checks .na { color: var(--ink-3); }
+  .log { font: 400 .76rem/1.5 var(--f-mono); max-height: 260px; overflow: auto; display: grid; gap: 3px; }
+  .log div { display: grid; grid-template-columns: 64px 1fr; gap: 8px; }
+  .log .ts { color: var(--accent-ink); }
+  .log .k-human { color: var(--ok); font-weight: 600; }
+  .log .k-warn { color: var(--crit); }
+  .log .k-dim { color: var(--ink-3); }
+  .op { display: grid; gap: var(--s-3); }
+  .cams { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cams figure { gap: 4px; }
+  .cams canvas { width: 100%; aspect-ratio: 4 / 3; height: auto; border-radius: 4px; background: #000; image-rendering: pixelated; display: block; }
+  .cams figcaption { font: 500 .68rem var(--f-mono); letter-spacing: .04em; color: var(--ink-3); }
+  .kpi td, .kpi th { padding: 6px 8px; font-size: .8rem; }
+  .pill { display: inline-block; font: 600 .66rem var(--f-mono); padding: 2px 6px; border-radius: 3px; letter-spacing: .04em; }
+  .pill.met { background: var(--ok-bg); color: var(--ok); } .pill.miss { background: var(--crit-bg); color: var(--crit); } .pill.na { background: var(--panel-2); color: var(--ink-3); }
+  .ev-meta { font: 400 .72rem/1.45 var(--f-mono); color: var(--ink-2); word-break: break-all; }
+  .op-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .readout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+  .readout .stat .v { font-size: 1.35rem; }
+  .advisory { font: 400 .74rem/1.5 var(--f-mono); background: var(--panel-2); border-radius: 4px; padding: 8px 10px; margin-top: 10px; white-space: pre-wrap; }
+  .pulse-ring { animation: pulse 1.6s ease-out infinite; }
+  .blink { animation: blink 1s step-end infinite; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="page-h">
+    <span class="eyebrow">Interactive simulation</span>
+    <h1 style="font-size:clamp(2rem,4.6vw,3.2rem)">Live substation: one 110/20 kV yard at night</h1>
+    <p>Pick an event and watch it travel through the system: sensors on 12 fence panels, edge rules, sensor fusion, the robot dispatcher, and an operator who makes every decision. Change the conditions on the right to see when the robot stays home.</p>
+    <div class="row"><span class="tag i">Illustrative</span><span class="small muted">Sensor values, scores and timings are designed to explain the logic. Fusion scores rank alerts and are not probabilities until calibrated on real data.</span></div>
+  </div>
+
+  <div class="stack" style="margin-bottom:var(--s-4)">
+    <div class="scen" id="scen"></div>
+  </div>
+
+  <div class="sim">
+    <div class="stack">
+      <div class="yard-box">
+        <span class="clock" id="clock">02:46:50</span>
+        <svg id="yard" viewBox="0 0 800 560" role="img" aria-label="Top-down plan of a fenced 110/20 kV substation with 12 fence sensor nodes, two thermal cameras, a weather station, a robot dock and hatched electrical clearance zones"></svg>
+        <div class="yard-legend">
+          <span><i style="background:var(--live)"></i>Energised conductors</span>
+          <span><i style="background:var(--hatch);border:1px dashed var(--crit)"></i>Clearance zone (robot geofenced out)</span>
+          <span><i style="background:var(--accent);border-radius:3px"></i>Robot</span>
+          <span><i style="border:1.5px dashed var(--ink-3);height:8px"></i>Robot road</span>
+          <span><i style="background:var(--ok);border-radius:50%;width:10px"></i>Fence node</span>
+        </div>
+      </div>
+      <div class="panel tight">
+        <div class="panel-h"><h4>Decision path</h4><span class="small muted" id="pathNote">Waiting for an event</span></div>
+        <div class="steps" id="steps"></div>
+      </div>
+      <div class="panel tight">
+        <div class="panel-h"><h4>Sensor readings</h4><span class="small muted mono" id="sensNote">site SS-0417 · 12 nodes</span></div>
+        <svg id="vib" viewBox="0 0 600 150" role="img" aria-label="Vibration amplitude per fence panel" style="width:100%;height:auto;display:block"></svg>
+        <div class="readout">
+          <div class="stat"><span class="k">Acoustic peak</span><span class="v num" id="acDb">28 dB</span><span class="d" id="acCls">transformer hum (100 Hz)</span></div>
+          <div class="stat"><span class="k">Thermal</span><span class="v num" id="thV">—</span><span class="d" id="thCls">no objects</span></div>
+          <div class="stat"><span class="k">Weather</span><span class="v num" id="wxV">2 m/s</span><span class="d" id="wxCls">dry · 4 °C</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="console">
+      <div class="panel">
+        <div class="panel-h"><h4>Site conditions</h4><span class="small muted">change before or during a run</span></div>
+        <div class="stack" style="gap:10px">
+          <div class="field"><label for="batt">Robot battery <output id="battO">86%</output></label><input id="batt" type="range" min="5" max="100" value="86"></div>
+          <div class="field"><label for="thr">Escalation threshold <output id="thrO">0.60</output></label><input id="thr" type="range" min="0.2" max="0.95" step="0.05" value="0.6"></div>
+          <label class="check"><input type="checkbox" id="crew"> Maintenance crew checked in on site</label>
+          <label class="check"><input type="checkbox" id="link" checked> Link to control room is up</label>
+          <label class="check"><input type="checkbox" id="unsup"> DSO allows robot moves while the link is down</label>
+          <div class="row" style="gap:8px"><span class="small muted">Playback</span><div class="seg" id="speed"><button type="button" data-s="0.5" aria-pressed="false">0.5×</button><button type="button" data-s="1" aria-pressed="true">1×</button><button type="button" data-s="2" aria-pressed="false">2×</button></div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h4>Edge AI · fusion</h4><span class="mono small" id="scoreVal">—</span></div>
+        <div class="gauge"><div class="fill" id="scoreFill"></div><div class="thr" id="thrMark"><span>threshold</span></div></div>
+        <div class="contrib" id="contrib"><p class="small muted">Late fusion: each sensor scores on its own, then scores combine. Sound and vibration from the same fence hit count as one piece of evidence.</p></div>
+        <p class="small" id="ruleOut" style="margin-top:10px"></p>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h4>Robot dispatcher</h4><span class="small mono" id="robotState">docked · 86%</span></div>
+        <div class="checks" id="checks"><p class="small muted">Checks run when a cue is raised.</p></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h4>Operator console</h4><span class="tag p" id="opTag">Human decides</span></div>
+        <div class="op">
+          <div class="cams">
+            <figure><canvas id="cam" width="64" height="48" role="img" aria-label="Robot thermal camera view"></canvas><figcaption>THERMAL · robot PTZ</figcaption></figure>
+            <figure><canvas id="opt" width="128" height="96" role="img" aria-label="Robot optical camera view with privacy blur beyond the fence"></canvas><figcaption id="optCap">OPTICAL · IR-lit · privacy mask</figcaption></figure>
+          </div>
+          <div class="ev-meta" id="evMeta">No evidence yet. The robot's camera streams appear here when it reaches the cue.</div>
+        </div>
+        <div class="op-actions" id="opActions"></div>
+        <div id="advisory"></div>
+      </div>
+      <div class="panel" id="kpiPanel">
+        <div class="panel-h"><h4>This run vs the case targets</h4><span class="tag i">Simulated</span></div>
+        <div class="tbl-wrap" style="box-shadow:none"><table class="kpi" id="kpi"></table></div>
+        <p class="xs muted" style="margin-top:8px" id="kpiNote">Run an event to compare. Times come from the simulation's model, not from measurement. Detection takes seconds; a verified decision takes minutes. Never quote one as the other.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h4>Event log</h4><button class="btn" id="clearLog" type="button" style="padding:4px 8px;font-size:.76rem">Clear</button></div>
+        <div class="log" id="log" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="grid-3">
+      <div class="stack"><h3>Why the rules come first</h3><p class="small muted">Most nuisance alarms have a simple cause the site can see for itself: wind moves many panels together, rain is broadband noise, a crew checked in at the gate. Explaining these with plain rules is cheap and auditable, and it keeps robot trips rare.</p></div>
+      <div class="stack"><h3>Why rules never get the last word</h3><p class="small muted">Run "Intruder in a storm". Wind explains the fence movement, but it cannot explain a warm, upright shape on thermal, so the guard on the wind rule lets the event through to fusion. This is the hard case the classifier must get right.</p></div>
+      <div class="stack"><h3>What the robot never does</h3><p class="small muted">It never enters a hatched clearance zone, never moves while a crew is on site, and never switches equipment. If it can't go, the operator is told why and falls back to today's process: crew or police.</p></div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/gs.js"></script>
+<script>
+(function () {
+  const { el } = GS;
+  const $ = id => document.getElementById(id);
+  const yard = $("yard");
+
+  /* ================= GEOMETRY ================= */
+  const F = { x0: 40, y0: 40, x1: 760, y1: 520 };            // fence
+  const R = { x0: 75, y0: 75, x1: 725, y1: 485 };            // robot ring road
+  const PER = 2 * (R.x1 - R.x0) + 2 * (R.y1 - R.y0);         // 2120 px
+  const M_PER_PX = 120 / 720;                                // yard ≈ 120 m wide
+  const PANELS = [
+    { id: "P1", x: 130, y: 40, side: "N" }, { id: "P2", x: 310, y: 40, side: "N" }, { id: "P3", x: 490, y: 40, side: "N" }, { id: "P4", x: 670, y: 40, side: "N" },
+    { id: "P5", x: 760, y: 160, side: "E" }, { id: "P6", x: 760, y: 400, side: "E" },
+    { id: "P7", x: 670, y: 520, side: "S" }, { id: "P8", x: 490, y: 520, side: "S" }, { id: "P9", x: 310, y: 520, side: "S" }, { id: "P10", x: 130, y: 520, side: "S" },
+    { id: "P11", x: 40, y: 400, side: "W" }, { id: "P12", x: 40, y: 160, side: "W" },
+  ];
+  const obsPoint = p => p.side === "N" ? [p.x, R.y0] : p.side === "E" ? [R.x1, p.y] : p.side === "S" ? [p.x, R.y1] : [R.x0, p.y];
+  function sOf([x, y]) {
+    if (Math.abs(y - R.y0) < 1) return x - R.x0;
+    if (Math.abs(x - R.x1) < 1) return (R.x1 - R.x0) + (y - R.y0);
+    if (Math.abs(y - R.y1) < 1) return (R.x1 - R.x0) + (R.y1 - R.y0) + (R.x1 - x);
+    return 2 * (R.x1 - R.x0) + (R.y1 - R.y0) + (R.y1 - y);
+  }
+  function ptOf(s) {
+    s = ((s % PER) + PER) % PER;
+    const w = R.x1 - R.x0, h = R.y1 - R.y0;
+    if (s <= w) return [R.x0 + s, R.y0];
+    if (s <= w + h) return [R.x1, R.y0 + (s - w)];
+    if (s <= 2 * w + h) return [R.x1 - (s - w - h), R.y1];
+    return [R.x0, R.y1 - (s - 2 * w - h)];
+  }
+  const DOCK = [130, R.y1], DOCK_S = sOf(DOCK);
+  const HOT = { x: 512, y: 248, label: "T2 HV bushing", obs: [R.x1, 290] };
+
+  /* ================= DRAW YARD ================= */
+  const defs = el("defs", {}, yard);
+  const pat = el("pattern", { id: "hatch", width: 8, height: 8, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" }, defs);
+  el("rect", { width: 8, height: 8, fill: "var(--hatch)" }, pat);
+  el("line", { x1: 0, y1: 0, x2: 0, y2: 8, stroke: "var(--crit)", "stroke-width": 1, opacity: .35 }, pat);
+  const fov = el("radialGradient", { id: "fov", cx: 0, cy: 0, r: 1 }, defs);
+  el("stop", { offset: 0, "stop-color": "var(--live)", "stop-opacity": .16 }, fov);
+  el("stop", { offset: 1, "stop-color": "var(--live)", "stop-opacity": 0 }, fov);
+
+  const gBase = el("g", {}, yard);
+  const T = (x, y, s, o = {}) => { const t = el("text", Object.assign({ x, y, "font-size": 11, fill: "var(--ink-2)" }, o), gBase); t.textContent = s; return t; };
+  // gravel ground
+  el("rect", { x: F.x0, y: F.y0, width: F.x1 - F.x0, height: F.y1 - F.y0, fill: "var(--panel-2)", opacity: .45 }, gBase);
+  // camera FOVs
+  el("path", { d: "M60,60 L420,180 L200,420 Z", fill: "url(#fov)", opacity: .9 }, gBase);
+  el("path", { d: "M740,500 L380,380 L600,140 Z", fill: "url(#fov)", opacity: .9 }, gBase);
+  // ring road
+  el("rect", { x: R.x0, y: R.y0, width: R.x1 - R.x0, height: R.y1 - R.y0, fill: "none", stroke: "var(--ink-3)", "stroke-width": 1.4, "stroke-dasharray": "2 5", opacity: .8 }, gBase);
+  // clearance zones
+  [[170, 92, 460, 128], [235, 222, 130, 118], [435, 222, 130, 118]].forEach(([x, y, w, h]) => el("rect", { x, y, width: w, height: h, fill: "url(#hatch)", stroke: "var(--crit)", "stroke-width": .9, "stroke-dasharray": "4 3" }, gBase));
+  // incoming 110 kV lines
+  [250, 550].forEach(x => {
+    el("line", { x1: x, y1: 0, x2: x, y2: 200, stroke: "var(--live)", "stroke-width": 2.4 }, gBase);
+    el("line", { x1: x - 9, y1: 112, x2: x + 9, y2: 124, stroke: "currentColor", "stroke-width": 2 }, gBase); // disconnector
+    el("rect", { x: x - 10, y: 140, width: 20, height: 20, fill: "var(--panel)", stroke: "currentColor", "stroke-width": 1.6 }, gBase); // breaker
+  });
+  T(258, 14, "110 kV line 1", { "font-size": 10.5 }); T(558, 14, "110 kV line 2", { "font-size": 10.5 });
+  el("line", { x1: 200, y1: 200, x2: 600, y2: 200, stroke: "var(--live)", "stroke-width": 5 }, gBase);
+  T(604, 204, "110 kV busbar", { "font-size": 10.5 });
+  // transformers
+  [300, 500].forEach((x, i) => {
+    el("line", { x1: x, y1: 200, x2: x, y2: 245, stroke: "var(--live)", "stroke-width": 2.2 }, gBase);
+    el("circle", { cx: x, cy: 270, r: 22, fill: "var(--panel)", stroke: "currentColor", "stroke-width": 1.7 }, gBase);
+    el("circle", { cx: x, cy: 298, r: 22, fill: "none", stroke: "currentColor", "stroke-width": 1.7 }, gBase);
+    T(x, 336, `T${i + 1} 110/20 kV`, { "text-anchor": "middle", "font-size": 10.5 });
+    el("line", { x1: x, y1: 320, x2: x, y2: 380, stroke: "var(--live)", "stroke-width": 1.8, "stroke-dasharray": "5 3" }, gBase);
+  });
+  // MV switchgear building + control building
+  el("rect", { x: 270, y: 380, width: 260, height: 54, fill: "var(--panel)", stroke: "currentColor", "stroke-width": 1.4 }, gBase);
+  T(400, 412, "20 kV switchgear (indoor)", { "text-anchor": "middle" });
+  el("rect", { x: 95, y: 372, width: 120, height: 74, fill: "var(--panel)", stroke: "currentColor", "stroke-width": 1.4 }, gBase);
+  T(155, 400, "Control building", { "text-anchor": "middle" });
+  T(155, 416, "RTU · edge box", { "text-anchor": "middle", "font-size": 10, fill: "var(--ink-3)" });
+  // dock
+  el("rect", { x: 110, y: 490, width: 40, height: 20, rx: 3, fill: "none", stroke: "var(--accent)", "stroke-width": 1.6 }, gBase);
+  T(160, 505, "dock", { fill: "var(--accent-ink)", "font-size": 10.5 });
+  // cameras + weather
+  [[60, 60, "Thermal cam C1"], [740, 500, "Thermal cam C2"]].forEach(([x, y, l], i) => {
+    el("circle", { cx: x, cy: y, r: 6, fill: "var(--live)" }, gBase);
+    T(i ? x - 8 : x + 10, i ? y - 10 : y + 18, l, { "font-size": 10, "text-anchor": i ? "end" : "start", fill: "var(--live)" });
+  });
+  el("line", { x1: 700, y1: 98, x2: 700, y2: 126, stroke: "currentColor", "stroke-width": 1.5 }, gBase);
+  el("path", { d: "M692,98 L708,98 M700,98 L700,92", stroke: "currentColor", "stroke-width": 1.5 }, gBase);
+  T(690, 140, "weather stn", { "font-size": 10, "text-anchor": "middle" });
+  // gate
+  el("line", { x1: 330, y1: 520, x2: 390, y2: 520, stroke: "var(--panel)", "stroke-width": 4 }, gBase);
+  T(360, 548, "gate", { "text-anchor": "middle", "font-size": 10 });
+  // fence
+  el("rect", { x: F.x0, y: F.y0, width: F.x1 - F.x0, height: F.y1 - F.y0, fill: "none", stroke: "currentColor", "stroke-width": 1.6, "stroke-dasharray": "7 4" }, gBase);
+  el("line", { x1: 330, y1: 520, x2: 390, y2: 520, stroke: "var(--panel-2)", "stroke-width": 3 }, gBase);
+
+  // dynamic layers
+  const gWx = el("g", {}, yard);
+  const gActors = el("g", {}, yard);
+  const gNodes = el("g", {}, yard);
+  const nodeEls = PANELS.map(p => {
+    const g = el("g", { tabindex: 0, role: "img", "aria-label": `Fence node ${p.id}` }, gNodes);
+    const ring = el("circle", { cx: p.x, cy: p.y, r: 6, fill: "none", stroke: "var(--ok)", "stroke-width": 1.4, opacity: 0 }, g);
+    const dot = el("circle", { cx: p.x, cy: p.y, r: 6, fill: "var(--ok)", stroke: "var(--panel)", "stroke-width": 2 }, g);
+    const lx = p.side === "E" ? p.x - 12 : p.side === "W" ? p.x + 12 : p.x;
+    const ly = p.side === "N" ? p.y + 20 : p.side === "S" ? p.y - 11 : p.y + 4;
+    const t = el("text", { x: lx, y: ly, "font-size": 10, "text-anchor": p.side === "E" ? "end" : p.side === "W" ? "start" : "middle", fill: "var(--ink-3)", class: "mono" }, g); t.textContent = p.id;
+    g.addEventListener("pointermove", e => GS.tip(`<b>${p.id}</b> fence node<br>vibration ${state.vib[PANELS.indexOf(p)].toFixed(2)} g<br>MEMS mic + accelerometer`, e.clientX, e.clientY));
+    g.addEventListener("pointerleave", () => GS.tip(null));
+    g.addEventListener("focus", () => { const r = g.getBoundingClientRect(); GS.tip(`<b>${p.id}</b> fence node<br>vibration ${state.vib[PANELS.indexOf(p)].toFixed(2)} g`, r.right, r.top); });
+    g.addEventListener("blur", () => GS.tip(null));
+    return { ring, dot };
+  });
+  const hotGlow = el("circle", { cx: HOT.x, cy: HOT.y, r: 0, fill: "var(--crit)", opacity: .5 }, gActors);
+  const cueRing = el("circle", { cx: 0, cy: 0, r: 16, fill: "none", stroke: "var(--crit)", "stroke-width": 2.2, opacity: 0 }, yard);
+  const robot = el("g", {}, yard);
+  el("rect", { x: -11, y: -7, width: 22, height: 14, rx: 3.5, fill: "var(--accent)", stroke: "var(--panel)", "stroke-width": 1.5 }, robot);
+  el("circle", { cx: 6, cy: 0, r: 2.4, fill: "var(--panel)" }, robot);
+  const robotBeam = el("path", { d: "", fill: "var(--accent)", opacity: 0 }, yard);
+
+  /* ================= STATE ================= */
+  const state = {
+    vib: PANELS.map(() => 0.04), wind: 2, rain: 0, temp: 4, ac: { db: 28, cls: "transformer hum (100 Hz)" },
+    thermal: [], actors: [], robotS: DOCK_S, speed: 1, token: 0, simT: 2 * 3600 + 46 * 60 + 50, run: null, hot: 0,
+  };
+  const cond = () => ({ batt: +$("batt").value, thr: +$("thr").value, crew: $("crew").checked, link: $("link").checked, unsup: $("unsup").checked });
+
+  /* ================= SCENARIOS ================= */
+  const base = v => PANELS.map(() => v + Math.random() * 0.02);
+  const SC = {
+    quiet: { name: "Quiet night", sub: "baseline, nothing happens", wind: 2, rain: 0, vib: () => base(0.03), ac: { db: 28, cls: "transformer hum (100 Hz)" }, thermal: [] },
+    wind: { name: "Wind gust", sub: "14 m/s, whole fence moves", wind: 14, rain: 0, vib: () => PANELS.map((p, i) => [0, 1, 2, 3, 4, 5, 10, 11, 6, 7].includes(i) ? 0.38 + Math.random() * .2 : 0.18), ac: { db: 54, cls: "broadband wind noise", broadband: true }, thermal: [], hit: 3 },
+    rain: { name: "Rain storm", sub: "14 mm/h, loud but harmless", wind: 6, rain: 14, vib: () => base(0.1), ac: { db: 59, cls: "broadband rain noise", broadband: true }, thermal: [], hit: 7 },
+    fox: { name: "Fox at the fence", sub: "small, low, warm", wind: 3, rain: 0, vib: () => PANELS.map((p, i) => i === 9 ? 0.28 : 0.04), ac: { db: 35, cls: "faint scratching" }, thermal: [{ kind: "animal", h: 0.4, t: 37, human: 0.05, animal: 0.91, panel: 9 }], hit: 9, anomaly: 0.1, actor: "fox" },
+    crew: { name: "Crew visit", sub: "work order checked in", wind: 3, rain: 0, vib: () => PANELS.map((p, i) => i === 8 ? 0.42 : 0.05), ac: { db: 62, cls: "engine + voices + gate" }, thermal: [{ kind: "people", h: 1.8, t: 34, human: 0.94, panel: 8 }], hit: 8, crew: true, actor: "van" },
+    intruder: { name: "Intruder 02:47", sub: "the worked incident", wind: 2, rain: 0, vib: () => PANELS.map((p, i) => i === 5 ? 0.82 : i === 4 || i === 6 ? 0.09 : 0.05), ac: { db: 61, cls: "metallic impact + cutting" }, thermal: [{ kind: "person", h: 1.75, t: 34, human: 0.82, panel: 5 }], hit: 5, impact: 0.9, actor: "person" },
+    storm: { name: "Intruder in a storm", sub: "the hard case", wind: 12, rain: 3, vib: () => PANELS.map((p, i) => i === 5 ? 0.92 : 0.38 + Math.random() * .15), ac: { db: 63, cls: "wind noise + impact transient", broadband: true }, thermal: [{ kind: "person", h: 1.7, t: 31, human: 0.7, panel: 5 }], hit: 5, impact: 0.5, actor: "person" },
+    hot: { name: "Hot joint on T2", sub: "asset health, not security", wind: 2, rain: 0, vib: () => base(0.04), ac: { db: 31, cls: "transformer hum, slightly raised" }, thermal: [{ kind: "hotspot", t: 78, ref: 41 }], hot: true },
+  };
+
+  /* ================= UI BUILD ================= */
+  const scen = $("scen");
+  Object.entries(SC).forEach(([k, s]) => {
+    const b = document.createElement("button");
+    b.className = "btn" + (k === "intruder" ? " start" : ""); b.type = "button"; b.dataset.k = k;
+    b.innerHTML = `<span>${s.name}</span><small>${s.sub}</small>`;
+    b.addEventListener("click", () => { scen.querySelector(".start")?.classList.remove("start"); start(k); });
+    scen.append(b);
+  });
+  const STEPS = [["SIGNAL", "Sensor signal"], ["RULES", "Explained by rules?"], ["FUSION", "AI fusion score"], ["THRESH", "Above threshold?"], ["SAFE", "Safe to send robot?"], ["EVIDENCE", "Robot captures evidence"], ["HUMAN", "Operator decides"], ["ADVISE", "Advisory alert"]];
+  STEPS.forEach(([b, t]) => { const d = document.createElement("div"); d.className = "step"; d.innerHTML = `<b>${b}</b>${t}`; $("steps").append(d); });
+  const STATE_TXT = { active: " · in progress", pass: " ✓", stop: " · exit here", fail: " ✗" };
+  const setStep = (i, cls) => { const d = $("steps").children[i]; d.className = "step " + (cls || ""); d.querySelector("b").textContent = STEPS[i][0] + (STATE_TXT[cls] || ""); };
+  const resetSteps = () => [...$("steps").children].forEach((d, i) => { d.className = "step"; d.querySelector("b").textContent = STEPS[i][0]; });
+
+  ["batt", "thr"].forEach(id => $(id).addEventListener("input", () => {
+    $("battO").textContent = $("batt").value + "%"; $("thrO").textContent = (+$("thr").value).toFixed(2);
+    $("thrMark").style.left = (+$("thr").value * 100) + "%";
+    if (state.robotS === DOCK_S) $("robotState").textContent = `docked · ${$("batt").value}%`;
+  }));
+  $("thrMark").style.left = "60%";
+  $("speed").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    [...$("speed").children].forEach(x => x.setAttribute("aria-pressed", x === b)); state.speed = +b.dataset.s;
+  });
+  $("clearLog").addEventListener("click", () => $("log").innerHTML = "");
+
+  const fmtT = s => { s = Math.round(s); const h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60, x = s % 60; return [h, m, x].map(v => String(v).padStart(2, "0")).join(":"); };
+  function log(msg, kind) {
+    const d = document.createElement("div");
+    d.innerHTML = `<span class="ts">${fmtT(state.simT)}</span><span class="${kind ? "k-" + kind : ""}">${msg}</span>`;
+    $("log").append(d); $("log").scrollTop = 1e6;
+  }
+  const advance = sec => { state.simT += sec; $("clock").textContent = fmtT(state.simT); };
+
+  /* ================= SENSOR PANEL ================= */
+  const vib = $("vib");
+  function drawVib(hi) {
+    vib.innerHTML = "";
+    const W = 600, H = 150, m = { l: 34, r: 6, t: 10, b: 24 }, bw = (W - m.l - m.r) / 12;
+    [0, .5, 1].forEach(v => {
+      const y = m.t + (1 - v) * (H - m.t - m.b);
+      el("line", { x1: m.l, x2: W - m.r, y1: y, y2: y, stroke: "var(--line)", "stroke-width": .7 }, vib);
+      const t = el("text", { x: m.l - 6, y: y + 4, "font-size": 10, "text-anchor": "end", fill: "var(--ink-3)", class: "mono" }, vib); t.textContent = v.toFixed(1);
+    });
+    state.vib.forEach((v, i) => {
+      const h = Math.max(2, Math.min(1, v) * (H - m.t - m.b));
+      const x = m.l + i * bw + 3;
+      el("rect", { x, y: H - m.b - h, width: bw - 6, height: h, rx: 2, fill: i === hi ? "var(--crit)" : v > .3 ? "var(--accent)" : "var(--live)" }, vib);
+      const t = el("text", { x: x + (bw - 6) / 2, y: H - 8, "font-size": 10, "text-anchor": "middle", fill: "var(--ink-3)", class: "mono" }, vib); t.textContent = PANELS[i].id;
+    });
+    const t = el("text", { x: W - m.r, y: m.t + 8, "font-size": 10.5, "text-anchor": "end", fill: "var(--ink-2)" }, vib); t.textContent = "vibration RMS per panel (g, normalised)";
+  }
+  function setSensors(sc) {
+    state.vib = sc.vib(); state.wind = sc.wind; state.rain = sc.rain; state.ac = sc.ac; state.thermal = sc.thermal;
+    drawVib(sc.hit);
+    $("acDb").textContent = sc.ac.db + " dB"; $("acCls").textContent = sc.ac.cls;
+    $("wxV").textContent = sc.wind + " m/s"; $("wxCls").textContent = (sc.rain ? `rain ${sc.rain} mm/h` : "dry") + " · 4 °C";
+    const th = sc.thermal[0];
+    if (!th) { $("thV").textContent = "—"; $("thCls").textContent = "no objects"; }
+    else if (th.kind === "hotspot") { $("thV").textContent = th.t + " °C"; $("thCls").textContent = `T2 bushing clamp · ΔT ${th.t - th.ref} K vs phases`; }
+    else { $("thV").textContent = th.t + " °C"; $("thCls").textContent = `${th.kind} · ~${th.h} m tall`; }
+    nodeEls.forEach((n, i) => {
+      const v = state.vib[i];
+      n.dot.setAttribute("fill", v > .6 ? "var(--crit)" : v > .3 ? "var(--accent)" : "var(--ok)");
+      n.ring.setAttribute("stroke", v > .6 ? "var(--crit)" : "var(--accent)");
+      n.ring.classList.toggle("pulse-ring", v > .3); n.ring.setAttribute("opacity", v > .3 ? 1 : 0);
+    });
+  }
+  function resetSensors() { setSensors(SC.quiet); }
+
+  /* ================= RULES + FUSION ================= */
+  const median = a => { const s = [...a].sort((x, y) => x - y); return (s[5] + s[6]) / 2; };
+  function rules(sc) {
+    const th = sc.thermal[0];
+    const person = th && th.human > 0.5 && th.kind !== "people";
+    const coherent = state.vib.filter(v => v > .3).length;
+    if (sc.crew) return { explained: true, why: "Crew on site: work order WO-4471 checked in at the gate at 02:40. People-shaped heat at the gate matches the crew." };
+    if (sc.wind >= 10 && coherent >= 6 && !person) return { explained: true, why: `Wind: ${coherent} of 12 panels moving together, matching the ${sc.wind} m/s gust at the weather station.` };
+    if (sc.wind >= 10 && coherent >= 6 && person) return { explained: false, partial: true, why: `Wind explains the fence motion on ${coherent} panels, but not a warm upright shape on thermal. Guard on the wind rule: passed to fusion.` };
+    if (sc.rain >= 5 && sc.ac.broadband && Math.max(...state.vib) < .2) return { explained: true, why: `Rain: ${sc.rain} mm/h at the weather station, broadband acoustic signature, no local fence impact.` };
+    return { explained: false, why: "No rule explains it: no matching wind or rain, no switching logged in SCADA, no crew checked in." };
+  }
+  function fusion(sc) {
+    const i = sc.hit ?? 0, local = Math.max(0, state.vib[i] - median(state.vib));
+    const pImpact = Math.min(1, sc.impact ?? local * 1.1);
+    const th = sc.thermal[0] || {};
+    const pHuman = th.human || 0, pAnom = sc.anomaly || 0;
+    const parts = [
+      { k: "Fence impact (vibration + sound, counted once)", w: .6, p: pImpact },
+      { k: "Thermal person detector", w: .75, p: pHuman },
+      { k: "Site anomaly (unfamiliar pattern)", w: .3, p: pAnom },
+    ];
+    const score = 1 - parts.reduce((a, c) => a * (1 - c.w * c.p), 1);
+    return { score, parts, local };
+  }
+  function showFusion(f) {
+    const c = cond();
+    $("scoreVal").textContent = "score " + f.score.toFixed(2);
+    $("scoreFill").style.width = (f.score * 100) + "%";
+    $("scoreFill").style.background = f.score >= c.thr ? "var(--crit)" : "var(--live)";
+    $("contrib").innerHTML = f.parts.map(p => `<div><span>${p.k}</span><span class="mono r" style="text-align:right">${(p.w * p.p).toFixed(2)}</span><span class="bar"><i style="width:${p.w * p.p * 100}%"></i></span></div>`).join("") +
+      `<p class="xs muted">score = 1 − Π(1 − wᵢ·pᵢ) · weights are placeholders until calibrated</p>`;
+  }
+  function clearFusion(msg) {
+    $("scoreVal").textContent = "—"; $("scoreFill").style.width = "0";
+    $("contrib").innerHTML = `<p class="small muted">${msg || "Late fusion: each sensor scores on its own, then scores combine. Sound and vibration from the same fence hit count as one piece of evidence."}</p>`;
+  }
+
+  /* ================= DISPATCHER ================= */
+  function checks(sc, targetInZone) {
+    const c = cond();
+    const list = [
+      ["Robot charged (≥ 30%)", c.batt >= 30, `${c.batt}%`],
+      ["Weather safe (wind < 15 m/s, no icing)", sc.wind < 15, `${sc.wind} m/s`],
+      ["Robot localised (LiDAR map match)", true, "0.08 m"],
+      ["No crew on site", !c.crew && !sc.crew, c.crew || sc.crew ? "crew checked in" : "none"],
+      ["Link up, or DSO allows unsupervised moves", c.link || c.unsup, c.link ? "link up" : c.unsup ? "policy allows" : "link down"],
+      ["Viewpoint outside clearance zones", !targetInZone, "road route"],
+    ];
+    $("checks").innerHTML = list.map(([t, ok, v]) => `<div><span class="ic ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"}</span><span>${t} <span class="muted mono xs">${v}</span></span></div>`).join("");
+    const fail = list.find(x => !x[1]);
+    return fail ? fail[0] : null;
+  }
+
+  /* ================= ROBOT MOTION ================= */
+  function placeRobot() {
+    const [x, y] = ptOf(state.robotS);
+    robot.setAttribute("transform", `translate(${x},${y})`);
+  }
+  placeRobot();
+  async function driveTo(targetS, tok) {
+    let d = targetS - state.robotS; d = ((d % PER) + PER) % PER; if (d > PER / 2) d -= PER;
+    const dist = Math.abs(d), dir = Math.sign(d), meters = dist * M_PER_PX;
+    const realMs = Math.max(600, dist * 4.2);
+    const simSec = meters / 1.2 + 15;          // ~1.2 m/s plus undock time
+    const s0 = state.robotS, t0 = performance.now(), sim0 = state.simT;
+    $("robotState").textContent = `moving · ${meters.toFixed(0)} m`;
+    return new Promise(res => {
+      function f(now) {
+        if (tok !== state.token) return res(false);
+        const k = Math.min(1, (now - t0) / (realMs / state.speed));
+        state.robotS = s0 + dir * dist * k; placeRobot();
+        state.simT = sim0 + simSec * k; $("clock").textContent = fmtT(state.simT);
+        if (k < 1) requestAnimationFrame(f); else res(true);
+      }
+      requestAnimationFrame(f);
+    });
+  }
+  const wait = (ms, tok) => new Promise(r => setTimeout(() => r(tok === state.token), ms / state.speed));
+
+  /* ================= ACTORS + WEATHER ================= */
+  function setActors(sc) {
+    gActors.querySelectorAll(".actor").forEach(n => n.remove());
+    hotGlow.setAttribute("r", 0);
+    if (sc.actor === "person") {
+      const g = el("g", { class: "actor", transform: "translate(781,400)" }, gActors);
+      el("circle", { cx: 0, cy: -16, r: 5, fill: "var(--crit)" }, g);
+      el("rect", { x: -4, y: -10, width: 8, height: 18, rx: 3, fill: "var(--crit)" }, g);
+      el("line", { x1: -3, y1: -2, x2: -14, y2: -2, stroke: "var(--crit)", "stroke-width": 3 }, g);
+    }
+    if (sc.actor === "fox") {
+      const g = el("g", { class: "actor", transform: "translate(150,540)" }, gActors);
+      el("ellipse", { cx: 0, cy: 0, rx: 11, ry: 5, fill: "var(--accent)" }, g);
+      el("circle", { cx: 11, cy: -3, r: 4, fill: "var(--accent)" }, g);
+      el("path", { d: "M-11,0 Q-20,-6 -22,2", stroke: "var(--accent)", "stroke-width": 4, fill: "none" }, g);
+      g.animate([{ transform: "translate(170px,540px)" }, { transform: "translate(95px,540px)" }], { duration: 6000, iterations: Infinity, direction: "alternate" });
+    }
+    if (sc.actor === "van") {
+      const g = el("g", { class: "actor" }, gActors);
+      el("rect", { x: 335, y: 470, width: 46, height: 22, rx: 3, fill: "var(--ok)" }, g);
+      [345, 357, 369].forEach(x => el("circle", { cx: x, cy: 458, r: 4, fill: "var(--ok)" }, g));
+      const t = el("text", { x: 395, y: 486, "font-size": 10.5, fill: "var(--ok)" }, g); t.textContent = "crew WO-4471";
+    }
+    if (sc.hot) hotGlow.setAttribute("r", 12);
+  }
+  // wind streaks & rain
+  const streaks = Array.from({ length: 26 }, () => ({ x: Math.random() * 800, y: Math.random() * 560, l: 20 + Math.random() * 40 }));
+  const drops = Array.from({ length: 70 }, () => ({ x: Math.random() * 800, y: Math.random() * 560 }));
+  const sEls = streaks.map(() => el("line", { stroke: "var(--ink-3)", "stroke-width": 1, opacity: 0 }, gWx));
+  const dEls = drops.map(() => el("line", { stroke: "var(--live)", "stroke-width": 1, opacity: 0 }, gWx));
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let lastF = performance.now();
+  function wx(now) {
+    const dt = Math.min(50, now - lastF) / 1000; lastF = now;
+    const w = state.wind, r = state.rain;
+    streaks.forEach((s, i) => {
+      s.x += w * 28 * dt; if (s.x > 820) { s.x = -40; s.y = Math.random() * 560; }
+      const on = w >= 8;
+      sEls[i].setAttribute("x1", s.x); sEls[i].setAttribute("x2", s.x + s.l * w / 14); sEls[i].setAttribute("y1", s.y); sEls[i].setAttribute("y2", s.y + 2);
+      sEls[i].setAttribute("opacity", on ? .45 : 0);
+    });
+    drops.forEach((d, i) => {
+      d.y += 380 * dt; d.x += w * 6 * dt; if (d.y > 560) { d.y = -10; d.x = Math.random() * 800; }
+      dEls[i].setAttribute("x1", d.x); dEls[i].setAttribute("x2", d.x + 2); dEls[i].setAttribute("y1", d.y); dEls[i].setAttribute("y2", d.y + 7);
+      dEls[i].setAttribute("opacity", r >= 3 ? .5 : 0);
+    });
+    if (state.hot) hotGlow.setAttribute("opacity", .35 + .25 * Math.sin(now / 300));
+    if (+cueRing.getAttribute("opacity") > 0) cueRing.setAttribute("r", 14 + 5 * Math.abs(Math.sin(now / 260)));
+    requestAnimationFrame(wx);
+  }
+  if (!reduce) requestAnimationFrame(wx);
+
+  /* ================= THERMAL CAMERA ================= */
+  const cam = $("cam"), cx = cam.getContext("2d");
+  function iron(t) { // 0..1 → ironbow-ish
+    const r = Math.min(255, Math.max(0, 255 * Math.min(1, t * 1.8)));
+    const g = Math.min(255, Math.max(0, 255 * (t - 0.35) * 1.7));
+    const b = Math.min(255, Math.max(0, t < .3 ? 120 + t * 300 : 255 * (t - .8) * 4));
+    return [r, g, b];
+  }
+  function drawCam(kind) {
+    const W = 64, H = 48, img = cx.createImageData(W, H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let t = .12 + .05 * Math.sin(x / 7) + .03 * Math.random();
+      if (y > 30) t += .04;                                  // ground
+      if (x % 8 === 0 && y < 34) t += .05;                    // fence posts
+      if (kind === "person") { const dx = (x - 30) / 4.5, dy = (y - 24) / 13; if (dx * dx + dy * dy < 1) t = .8 + .1 * Math.random(); const hx = (x - 30) / 3.2, hy = (y - 9) / 3.4; if (hx * hx + hy * hy < 1) t = .92; if (y > 20 && y < 23 && x > 33 && x < 42) t = .55; }
+      if (kind === "fox") { const dx = (x - 30) / 9, dy = (y - 38) / 3.5; if (dx * dx + dy * dy < 1) t = .7 + .1 * Math.random(); }
+      if (kind === "hot") { const dx = (x - 32) / 4, dy = (y - 18) / 4; const d = dx * dx + dy * dy; if (d < 6) t = Math.max(t, .98 - d * .09); if (Math.abs(x - 32) < 2 && y > 20) t = Math.max(t, .45); }
+      const [r, g, b] = iron(Math.min(1, t)); const k = (y * W + x) * 4;
+      img.data[k] = r; img.data[k + 1] = g; img.data[k + 2] = b; img.data[k + 3] = 255;
+    }
+    cx.putImageData(img, 0, 0);
+  }
+  drawCam("none");
+
+  /* ================= OPTICAL CAMERA (IR-lit, privacy mask) ================= */
+  const opt = $("opt"), ox = opt.getContext("2d");
+  function drawOpt(kind) {
+    const W = 128, H = 96;
+    const g = v => { const c = Math.max(0, Math.min(255, v | 0)); return `rgb(${c * .82 | 0},${c},${c * .84 | 0})`; };
+    ox.fillStyle = "#000"; ox.fillRect(0, 0, W, H);
+    if (kind === "none") { $("optCap").textContent = "OPTICAL · IR-lit · privacy mask"; return; }
+    if (kind === "hot") {
+      // inside the yard: bushing on T2, no public space in view
+      ox.fillStyle = g(40); ox.fillRect(0, 0, W, H);
+      ox.fillStyle = g(90); ox.fillRect(30, 70, 68, 26);
+      for (let i = 0; i < 6; i++) { ox.fillStyle = g(150 - i * 6); ox.beginPath(); ox.ellipse(64, 66 - i * 9, 11, 4, 0, 0, 7); ox.fill(); }
+      ox.fillStyle = g(120); ox.fillRect(61, 8, 6, 12); ox.fillStyle = g(200); ox.fillRect(56, 12, 16, 5);
+      ox.strokeStyle = g(170); ox.lineWidth = 1.5; ox.beginPath(); ox.moveTo(64, 10); ox.lineTo(64, 0); ox.stroke();
+      ox.strokeStyle = "#ec6262"; ox.strokeRect(53, 8, 22, 12);
+      $("optCap").textContent = "OPTICAL · inside yard, no mask needed";
+      return;
+    }
+    // background: public space beyond the fence (to be masked)
+    const sky = ox.createLinearGradient(0, 0, 0, 40); sky.addColorStop(0, g(18)); sky.addColorStop(1, g(45));
+    ox.fillStyle = sky; ox.fillRect(0, 0, W, 40);
+    ox.fillStyle = g(70); ox.fillRect(0, 30, W, 12);                 // road
+    ox.fillStyle = g(150); ox.fillRect(98, 18, 6, 18); ox.beginPath(); ox.arc(101, 15, 3, 0, 7); ox.fill();   // passer-by
+    ox.fillStyle = g(110); ox.fillRect(6, 28, 26, 9); ox.fillStyle = g(255); ox.fillRect(30, 31, 3, 3);       // parked car
+    // mosaic everything above the fence-line margin
+    const maskH = 44, B = 8, img = ox.getImageData(0, 0, W, maskH);
+    for (let by = 0; by < maskH; by += B) for (let bx = 0; bx < W; bx += B) {
+      let r = 0, gg = 0, b = 0, n = 0;
+      for (let y = by; y < Math.min(by + B, maskH); y++) for (let x = bx; x < bx + B; x++) { const k = (y * W + x) * 4; r += img.data[k]; gg += img.data[k + 1]; b += img.data[k + 2]; n++; }
+      for (let y = by; y < Math.min(by + B, maskH); y++) for (let x = bx; x < bx + B; x++) { const k = (y * W + x) * 4; img.data[k] = r / n; img.data[k + 1] = gg / n; img.data[k + 2] = b / n; }
+    }
+    ox.putImageData(img, 0, 0);
+    // foreground gravel inside the yard
+    for (let y = maskH; y < H; y++) { ox.fillStyle = g(55 + (y - maskH) * 1.4 + Math.random() * 8); ox.fillRect(0, y, W, 1); }
+    // the person or animal at the fence line stays sharp
+    if (kind === "person") {
+      ox.fillStyle = g(205); ox.beginPath(); ox.arc(70, 34, 5, 0, 7); ox.fill();
+      ox.fillRect(65, 39, 10, 24); ox.fillRect(66, 62, 3, 16); ox.fillRect(71, 62, 3, 16);
+      ox.fillRect(55, 45, 12, 3); ox.fillStyle = g(240); ox.fillRect(50, 43, 6, 6);   // cutter
+    }
+    if (kind === "fox") { ox.fillStyle = g(170); ox.beginPath(); ox.ellipse(62, 76, 10, 4, 0, 0, 7); ox.fill(); ox.beginPath(); ox.arc(73, 73, 3.5, 0, 7); ox.fill(); }
+    // fence: posts + chain-link mesh, in front of everything
+    ox.strokeStyle = g(130); ox.lineWidth = .6;
+    for (let x = -60; x < W + 60; x += 7) { ox.beginPath(); ox.moveTo(x, 26); ox.lineTo(x + 52, 80); ox.stroke(); ox.beginPath(); ox.moveTo(x + 52, 26); ox.lineTo(x, 80); ox.stroke(); }
+    ox.fillStyle = g(160); [10, 42, 86, 118].forEach(x => ox.fillRect(x, 22, 3, 60));
+    if (kind === "person") { ox.strokeStyle = "#000"; ox.lineWidth = 2; ox.beginPath(); ox.moveTo(52, 40); ox.lineTo(58, 66); ox.stroke(); }  // cut gap
+    // mask boundary marker
+    ox.setLineDash([3, 2]); ox.strokeStyle = "#e8962f"; ox.lineWidth = 1; ox.beginPath(); ox.moveTo(0, maskH); ox.lineTo(W, maskH); ox.stroke(); ox.setLineDash([]);
+    $("optCap").textContent = "OPTICAL · beyond 2 m outside fence blurred on device";
+  }
+  drawOpt("none");
+
+  /* ================= KPI vs TARGETS ================= */
+  function renderKPI(note) {
+    const k = state.k || {};
+    const d = (a, b) => (a != null && b != null) ? b - a : null;
+    const f = s => s == null ? "—" : s < 60 ? `${s.toFixed(1)} s` : `${Math.floor(s / 60)} min ${Math.round(s % 60)} s`;
+    const rows = [
+      ["Anomaly detection (signal → cue)", "< 10 s", d(k.signal, k.cue), 10],
+      ["Edge AI latency (signal → score)", "< 2 s", d(k.signal, k.score), 2],
+      ["Alert to control centre", "< 1–2 s", k.alert ?? null, 2],
+      ["Robot on scene (cue → streaming)", "none set", d(k.cue, k.scene), null],
+      ["Verified decision (signal → human)", "minutes; measure in pilot", d(k.signal, k.decision), null],
+    ];
+    $("kpi").innerHTML = `<thead><tr><th>Metric</th><th>Target</th><th class="r">This run</th><th></th></tr></thead><tbody>` +
+      rows.map(([m, t, v, lim]) => {
+        const st = v == null || lim == null ? ["na", v == null ? "n/a" : "no target"] : v <= lim ? ["met", "met"] : ["miss", "missed"];
+        return `<tr><td>${m}</td><td class="small muted">${t}</td><td class="r mono">${f(v)}</td><td><span class="pill ${st[0]}">${st[1]}</span></td></tr>`;
+      }).join("") + `</tbody>`;
+    if (k.compute != null) $("kpiNote").innerHTML = `${note ? note + " " : ""}Rules + fusion computed in <b>${k.compute.toFixed(3)} ms</b> in this browser. A Jetson also runs neural detectors on video, which is what the 2 s budget is for. Times are simulated, not measured.`;
+  }
+  renderKPI();
+
+  /* ================= SIGNED EVIDENCE (real WebCrypto) ================= */
+  let keyPair = null;
+  (async () => { try { keyPair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]); } catch (e) { keyPair = null; } })();
+  const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  async function signEvidence(packet) {
+    const data = new TextEncoder().encode(JSON.stringify(packet));
+    try {
+      const h = await crypto.subtle.digest("SHA-256", data);
+      let sig = null, ok = null;
+      if (keyPair) {
+        sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, keyPair.privateKey, data);
+        ok = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, keyPair.publicKey, sig, data);
+      }
+      return { hash: hex(h), sig: sig ? hex(sig) : null, ok };
+    } catch (e) { return { hash: "(WebCrypto unavailable in this browser context)", sig: null, ok: null }; }
+  }
+
+  /* ================= OPERATOR ================= */
+  function operatorChoice(buttons) {
+    return new Promise(res => {
+      const box = $("opActions"); box.innerHTML = "";
+      buttons.forEach(([label, cls, val]) => {
+        const b = document.createElement("button"); b.className = "btn " + cls; b.type = "button"; b.textContent = label;
+        b.addEventListener("click", () => { box.innerHTML = ""; res(val); });
+        box.append(b);
+      });
+      const tok = state.token;
+      const watch = setInterval(() => { if (tok !== state.token) { clearInterval(watch); box.innerHTML = ""; res(null); } }, 200);
+    });
+  }
+
+  /* ================= RUN ================= */
+  function resetUI() {
+    resetSteps(); clearFusion(); $("ruleOut").textContent = ""; $("checks").innerHTML = '<p class="small muted">Checks run when a cue is raised.</p>';
+    $("opActions").innerHTML = ""; $("advisory").innerHTML = ""; $("evMeta").textContent = "No evidence yet. The robot's thermal camera stream appears here when it reaches the cue.";
+    $("opTag").className = "tag p"; $("opTag").textContent = "Human decides"; drawCam("none"); drawOpt("none");
+    state.k = {}; renderKPI();
+    cueRing.setAttribute("opacity", 0); robotBeam.setAttribute("opacity", 0);
+    state.robotS = DOCK_S; placeRobot(); $("robotState").textContent = `docked · ${$("batt").value}%`;
+    state.hot = 0;
+  }
+
+  async function start(k) {
+    const tok = ++state.token;
+    [...scen.children].forEach(b => b.classList.toggle("sel", b.dataset.k === k));
+    const sc = SC[k];
+    resetUI(); resetSensors(); setActors({});
+    state.simT = 2 * 3600 + 46 * 60 + 58; advance(0);
+    $("pathNote").textContent = sc.name;
+    log(`— scenario: ${sc.name} —`, "dim");
+    if (!(await wait(500, tok))) return;
+
+    advance(2);
+    setActors(sc); setSensors(sc); state.hot = sc.hot ? 1 : 0;
+    state.k = { signal: state.simT, compute: 0 };
+    if (k === "quiet") {
+      setStep(0, "stop"); $("pathNote").textContent = "No signal: heartbeat only";
+      log("All 12 nodes report heartbeat. Hum at 100 Hz is normal for a loaded transformer.", "dim");
+      clearFusion("Nothing to fuse. The site is quiet.");
+      return;
+    }
+    setStep(0, "active");
+    const hitP = sc.hit != null ? PANELS[sc.hit] : null;
+    if (sc.hot) log(`Thermal cam C2: T2 HV bushing clamp at ${sc.thermal[0].t} °C, other phases ${sc.thermal[0].ref} °C.`);
+    else log(`${hitP.id}: vibration ${state.vib[sc.hit].toFixed(2)} g, acoustic ${sc.ac.db} dB (${sc.ac.cls}).`);
+    if (sc.thermal[0] && !sc.hot) log(`Thermal: ${sc.thermal[0].kind}, ~${sc.thermal[0].h} m tall, ${sc.thermal[0].t} °C near ${hitP.id}.`);
+    if (!(await wait(1100, tok))) return;
+    setStep(0, "pass");
+
+    // ---- RULES
+    setStep(1, "active"); advance(0.4);
+    let c0 = performance.now();
+    const r = sc.hot ? { explained: false, why: "Not a security pattern. Routed to the asset-health channel: hot joint (I²R heating at a loose or corroded connection)." } : rules(sc);
+    state.k.compute += performance.now() - c0;
+    $("ruleOut").innerHTML = `<b>Rules:</b> ${r.why}`;
+    if (!(await wait(1200, tok))) return;
+    if (r.explained) {
+      setStep(1, "stop"); log(`Explained by rules → logged as benign. ${r.why}`, "dim");
+      $("pathNote").textContent = "Exit: logged as benign. No robot, no page.";
+      clearFusion("Skipped: the rules explained the signal, so fusion never ran.");
+      renderKPI("Explained by rules in 0.4 s; no cue, so nothing else to time.");
+      return;
+    }
+    setStep(1, "pass");
+    if (r.partial) log(r.why, "warn");
+
+    // ---- FUSION
+    setStep(2, "active"); advance(0.8);
+    c0 = performance.now();
+    let f;
+    if (sc.hot) {
+      f = { score: 0.71, parts: [{ k: "ΔT vs same-type connectors (37 K)", w: .8, p: .9 }, { k: "Load-corrected trend (rising 3 days)", w: .4, p: .5 }, { k: "Security evidence", w: .6, p: 0 }] };
+      f.score = 1 - f.parts.reduce((a, c) => a * (1 - c.w * c.p), 1);
+    } else f = fusion(sc);
+    state.k.compute += performance.now() - c0; state.k.score = state.simT;
+    showFusion(f);
+    log(`Fusion score ${f.score.toFixed(2)} (threshold ${cond().thr.toFixed(2)}).`);
+    if (!(await wait(1300, tok))) return;
+    setStep(2, "pass");
+
+    // ---- THRESHOLD
+    setStep(3, "active");
+    if (!(await wait(700, tok))) return;
+    if (f.score < cond().thr) {
+      setStep(3, "stop");
+      log(`Below threshold → log and watch. Sensitivity on ${hitP ? hitP.id : "site"} raised for 10 min.`, "dim");
+      $("pathNote").textContent = "Exit: log and watch";
+      renderKPI("Below threshold: logged and watched, no cue.");
+      return;
+    }
+    setStep(3, "pass");
+    advance(0.1); state.k.cue = state.simT; state.k.alert = cond().link ? 0.4 : null;
+    renderKPI();
+    const cueAt = sc.hot ? [HOT.x, HOT.y] : [hitP.x, hitP.y];
+    cueRing.setAttribute("cx", cueAt[0]); cueRing.setAttribute("cy", cueAt[1]); cueRing.setAttribute("opacity", 1);
+    log(sc.hot ? "Asset-health cue raised (priority: next available, not urgent)." : `Security cue raised at ${hitP.id}. Control room alerted now, before any robot moves.`, "warn");
+
+    // ---- SAFE?
+    setStep(4, "active"); advance(1);
+    const fail = checks(sc, false);
+    if (!(await wait(1300, tok))) return;
+    const c = cond();
+    if (fail) {
+      setStep(4, "fail");
+      log(`Robot NOT sent: ${fail.toLowerCase()} failed. Operator alerted anyway with the reason.`, "warn");
+      $("pathNote").textContent = "Exit: operator alerted without robot evidence";
+      if (!c.link) log("Link down: backup alert sent over the secondary channel (LTE SMS / satellite pager). Events queued for sync.", "warn");
+      $("opTag").className = "tag i"; $("opTag").textContent = "No robot";
+      $("evMeta").innerHTML = `Robot unavailable (${fail}).<br>Fallback: today's process. Operator sends a crew or police based on sensor data alone.`;
+      setStep(6, "active");
+      const v = await operatorChoice([["Send crew + police", "danger", "send"], ["Watch cameras, hold", "", "hold"]]);
+      if (v == null) return;
+      advance(45); state.k.decision = state.simT;
+      setStep(6, "pass"); log(v === "send" ? "Operator: crew and police sent (without close-range evidence)." : "Operator: holding, watching fixed cameras.", "human");
+      renderKPI(c.link ? "No robot: the decision rests on sensor data alone." : "Alert went over the backup channel, so the 1–2 s link target does not apply.");
+      return;
+    }
+    setStep(4, "pass");
+    if (!c.link) log("Link down: moving under DSO policy for unsupervised moves. Evidence will be queued; the operator cannot confirm until the link returns.", "warn");
+
+    // ---- DRIVE
+    setStep(5, "active");
+    const obs = sc.hot ? HOT.obs : obsPoint(hitP);
+    log(`Robot undocks, route ${((Math.abs(sOf(obs) - DOCK_S) % PER) * M_PER_PX).toFixed(0)} m along the ring road, outside all clearance zones.`);
+    if (!(await driveTo(sOf(obs), tok))) return;
+    robotBeam.setAttribute("d", `M${obs[0]},${obs[1]} L${cueAt[0] - 14},${cueAt[1] - 14} L${cueAt[0] + 14},${cueAt[1] + 14} Z`);
+    robotBeam.setAttribute("opacity", .22);
+    $("robotState").textContent = "on station · streaming";
+    const kind = sc.hot ? "hot" : sc.thermal[0].kind === "animal" ? "fox" : "person";
+    drawCam(kind); drawOpt(kind);
+    state.k.scene = state.simT; renderKPI();
+    const packet = { site: "SS-0417 (110/20 kV)", cue: sc.hot ? "T2-bushing" : hitP.id, t: fmtT(state.simT), score: +f.score.toFixed(2), robot: { pose: obs.map(v => Math.round(v * M_PER_PX * 10) / 10), batt: c.batt - 3 }, frame: "thermal 640×512 + optical 4K, 30 s clip" };
+    const sig = await signEvidence(packet);
+    if (tok !== state.token) return;
+    $("evMeta").innerHTML = `<b>Evidence packet</b> · ${packet.t}<br>cue ${packet.cue} · score ${packet.score}<br>SHA-256 ${sig.hash.slice(0, 32)}…<br>${sig.sig ? `ECDSA P-256 sig ${sig.sig.slice(0, 24)}… <span style="color:var(--ok)">${sig.ok ? "✓ verified" : "✗"}</span>` : "signature: (unavailable here)"}<br><span class="muted">Proves the packet came from this device unchanged. It does not prove who the intruder is.</span>`;
+    log(`Evidence streaming: signed packet ${sig.hash.slice(0, 12)}…`);
+    setStep(5, "pass");
+
+    // ---- HUMAN
+    setStep(6, "active");
+    $("opTag").className = "tag v"; $("opTag").textContent = "Awaiting operator";
+    if (!c.link) {
+      log("Operator cannot see the evidence until the link returns. Nothing is decided automatically.", "warn");
+      $("evMeta").innerHTML += "<br><b style='color:var(--crit)'>Queued: link down.</b>";
+      await wait(1500, tok); return;
+    }
+    const v = await operatorChoice(sc.hot
+      ? [["Raise maintenance work order", "primary", "wo"], ["Dismiss", "", "no"]]
+      : [["Confirm intrusion", "danger", "yes"], ["Dismiss as false alarm", "", "no"]]);
+    if (v == null) return;
+    advance(75); state.k.decision = state.simT;
+    $("opTag").className = "tag p"; $("opTag").textContent = v === "no" ? "Dismissed by operator" : "Confirmed by operator";
+    log("Operator reviewed thermal + optical evidence (~75 s assumed).", "dim");
+    setStep(6, "pass");
+    renderKPI();
+    log(v === "yes" ? "Operator CONFIRMS intrusion. Police called; crew sent with the evidence." : v === "wo" ? "Operator raises work order: re-torque / replace T2 bushing clamp at next outage window." : "Operator dismisses. Event labelled as false alarm for retraining.", "human");
+
+    // ---- ADVISE
+    setStep(7, "active"); advance(3);
+    if (v !== "no") {
+      $("advisory").innerHTML = `<div class="advisory">→ DSO security system (primary), via one-way gateway
+→ SCADA (optional), IEC 60870-5-104
+   type M_SP_TB_1 (single-point + time tag)
+   IOA ${sc.hot ? 4102 : 4001} = ON  "${sc.hot ? "Asset health: hot joint T2" : "Security: intrusion verified " + hitP.id}"
+   CP56Time2a ${fmtT(state.simT)}.000
+No control commands (C_ types) exist in this gateway.</div>`;
+    }
+    log(v === "no" ? "No advisory sent. Label stored: false alarm." : "Advisory sent. No control action is possible from Grid Sentinel.");
+    setStep(7, "pass");
+    $("pathNote").textContent = "Complete. Event labelled for the next controlled model update.";
+    cueRing.setAttribute("opacity", 0);
+    if (!(await wait(1400, tok))) return;
+    log("Robot returns to dock.", "dim"); robotBeam.setAttribute("opacity", 0);
+    await driveTo(DOCK_S, tok);
+    if (tok === state.token) $("robotState").textContent = `docked · charging`;
+  }
+
+  resetSensors();
+  GS.actions.runIntruder = () => start("intruder");
+  if (location.hash === "#intruder") start("intruder");
+  document.addEventListener("gs:theme", () => drawVib());
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grid Sentinel · Costs and ROI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/gs.css">
+<style>
+  .lay { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+  @media (max-width: 900px) { .lay { grid-template-columns: 1fr; } }
+  .ctrl { display: grid; gap: 12px; }
+  .stackbar { display: flex; height: 34px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--panel); }
+  .stackbar div { min-width: 0; display: flex; align-items: center; justify-content: center; font: 600 .7rem var(--f-mono); color: #fff; white-space: nowrap; overflow: hidden; transition: flex-basis .3s; }
+  .stack-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .78rem; color: var(--ink-2); }
+  .stack-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .chart-legend { display: flex; gap: 16px; font-size: .8rem; color: var(--ink-2); flex-wrap: wrap; }
+  .chart-legend i { display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: 3px; border-radius: 2px; }
+  .vbar { display: grid; gap: 10px; }
+  .vbar .r { display: grid; grid-template-columns: 150px 1fr 90px; gap: 10px; align-items: center; font-size: .85rem; }
+  @media (max-width: 520px) { .vbar .r { grid-template-columns: 100px 1fr 70px; } }
+  .vbar .track { height: 18px; background: var(--panel-2); border-radius: 3px; position: relative; }
+  .vbar .track i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; transition: width .3s; }
+  .vbar .v { font: 600 .82rem var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
+  .funnel { display: grid; gap: 8px; }
+  .funnel .lvl { border-radius: 4px; padding: 10px 14px; color: #fff; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; transition: width .3s; min-width: 220px; max-width: 100%; }
+  .funnel .lvl b { font: 700 1.3rem var(--f-display); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="page-h">
+    <span class="eyebrow">Interactive model · every input is an assumption</span>
+    <h1 style="font-size:clamp(2rem,4.6vw,3.2rem)">Costs, margin and customer value</h1>
+    <p>The deck's 49% gross margin is arithmetically right but leaves costs out. This page rebuilds it, adds what is missing, and shows that the margin depends most on one number: how many sites share a robot fleet.</p>
+    <div class="row"><span class="tag a">Assumption</span><span class="small muted">Every euro figure here is a team hypothesis to set with a DSO in a pilot. None is a quote or a measured result.</span></div>
+  </div>
+
+  <section style="padding-top:0">
+    <div class="lay">
+      <div class="panel ctrl">
+        <h4>Per protected site, per year</h4>
+        <div class="field"><label for="price">Price <output id="priceO"></output></label><input id="price" type="range" min="5000" max="40000" step="500" value="20000"></div>
+        <div class="field"><label for="sens">Sensing capex per site <output id="sensO"></output></label><input id="sens" type="range" min="5000" max="30000" step="500" value="12500"></div>
+        <div class="field"><label for="fleet">Robot fleet cost <output id="fleetO"></output></label><input id="fleet" type="range" min="40000" max="300000" step="5000" value="150000"></div>
+        <div class="field"><label for="spf">Sites per fleet <output id="spfO"></output></label><input id="spf" type="range" min="1" max="12" value="8"></div>
+        <div class="field"><label for="yrs">Amortisation years <output id="yrsO"></output></label><input id="yrs" type="range" min="3" max="8" value="5"></div>
+        <div class="field"><label for="ops">Connectivity, upkeep, model ops <output id="opsO"></output></label><input id="ops" type="range" min="1000" max="10000" step="250" value="4000"></div>
+        <hr style="margin:4px 0">
+        <span class="small muted">Costs the deck leaves out</span>
+        <label class="check"><input type="checkbox" id="lease"> Lease the robot at 10% interest</label>
+        <label class="check"><input type="checkbox" id="inst"> Installation, dock, site power (€12k)</label>
+        <label class="check"><input type="checkbox" id="maint"> Robot maintenance and batteries</label>
+        <label class="check"><input type="checkbox" id="svc"> Field service, 24/7 support, insurance</label>
+        <div class="row" style="gap:6px"><button class="btn" type="button" id="deckBtn">Deck view</button><button class="btn" type="button" id="fullBtn">Add everything</button></div>
+      </div>
+
+      <div class="stack">
+        <div class="grid-4">
+          <div class="panel tight stat"><span class="k">Cost per site-year</span><span class="v num" id="kCost">—</span><span class="d" id="kCostD"></span></div>
+          <div class="panel tight stat"><span class="k">Gross margin</span><span class="v num" id="kMargin">—</span><span class="d" id="kMarginD"></span></div>
+          <div class="panel tight stat"><span class="k">Break-even sites per fleet</span><span class="v num" id="kBE">—</span><span class="d">for margin ≥ 0</span></div>
+          <div class="panel tight stat"><span class="k">Gross profit, 300 sites</span><span class="v num" id="kSOM">—</span><span class="d">the year-5 target</span></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><h4>Where each euro of price goes</h4><span class="small muted mono" id="sbTotal"></span></div>
+          <div class="stackbar" id="sb" role="img" aria-label="Cost stack compared with price"></div>
+          <div class="stack-legend" id="sbl" style="margin-top:10px"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><h4>Gross margin vs sites per fleet</h4>
+            <div class="chart-legend"><span><i style="background:var(--live)"></i>Deck cost stack</span><span><i style="background:var(--accent)"></i>Your current stack</span></div></div>
+          <svg id="mChart" role="img" aria-label="Gross margin rises with sites per fleet; with all costs included it stays lower" style="width:100%;height:auto;display:block"></svg>
+          <p class="small muted" style="margin-top:8px">The fleet model shows sites per fleet is physically limited by travel time. The way out: let the DSO or a partner own the hardware, sell the software layer, charge installation separately, and price by site risk.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="grid-2">
+      <div class="stack">
+        <span class="eyebrow">Customer value</span>
+        <h2>Is it worth €20k to the DSO?</h2>
+        <p class="lede">Return = expected avoided loss + operational savings − fee. In the briefing's base case the value is about a third of the fee. The case works at high-risk sites, where false call-outs are frequent, or where compliance and crew safety carry a premium.</p>
+        <div class="panel ctrl">
+          <div class="field"><label for="pi">Chance of a serious incident per site-year <output id="piO"></output></label><input id="pi" type="range" min="0.1" max="10" step="0.1" value="1"></div>
+          <div class="field"><label for="loss">Loss if it happens <output id="lossO"></output></label><input id="loss" type="range" min="250000" max="20000000" step="250000" value="2000000"></div>
+          <div class="field"><label for="pd">We detect it <output id="pdO"></output></label><input id="pd" type="range" min="0.3" max="1" step="0.05" value="0.8"></div>
+          <div class="field"><label for="pc">Earlier verification changes the outcome <output id="pcO"></output></label><input id="pc" type="range" min="0.05" max="1" step="0.05" value="0.3"></div>
+          <div class="field"><label for="sa">Share of loss avoided <output id="saO"></output></label><input id="sa" type="range" min="0.1" max="1" step="0.05" value="0.5"></div>
+          <div class="field"><label for="co">Avoided crew call-outs per year <output id="coO"></output></label><input id="co" type="range" min="0" max="60" value="12"></div>
+          <div class="field"><label for="cc">Cost per call-out <output id="ccO"></output></label><input id="cc" type="range" min="100" max="2000" step="50" value="400"></div>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="panel">
+          <div class="panel-h"><h4>Value per site-year vs the fee</h4><span class="tag i">Hypothetical inputs</span></div>
+          <div class="vbar" id="roi"></div>
+          <p class="small" id="roiNote" style="margin-top:12px"></p>
+        </div>
+        <div class="callout"><b>Don't present "one avoided €10m incident ≈ 500 site-years of fees" as a payback.</b> It is €10m ÷ €20k, a comparison. It ignores how often such incidents happen and whether earlier verification would have changed the outcome.</div>
+        <div class="panel">
+          <h4>Easiest value to prove in a pilot</h4>
+          <p class="small muted" style="margin-top:6px">Fewer unnecessary call-outs and a faster time to a verified decision. Avoided incidents are too rare to show within a pilot.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="grid-2">
+      <div class="stack">
+        <span class="eyebrow">Market size · order of magnitude</span>
+        <h2>TAM, SAM, SOM, and how fragile each is</h2>
+        <p class="lede">The deck applies one South-Poland DSO's ratio (487 HV/MV stations per 5.5M customers) to Europe's ~260M customers. Greece's DSO ratio gives about a third of that.</p>
+        <div class="panel ctrl">
+          <div class="field"><span class="small muted">Substation ratio from</span>
+            <div class="seg" id="ratio"><button type="button" data-r="pl" aria-pressed="true">Poland (487 / 5.5M)</button><button type="button" data-r="gr" aria-pressed="false">Greece (241 / 7.6M)</button></div></div>
+          <div class="field"><label for="crit">Top-criticality share <output id="critO"></output></label><input id="crit" type="range" min="5" max="60" value="30"></div>
+          <label class="check"><input type="checkbox" id="large"> Correct for large DSOs' share of sites (80%)</label>
+          <div class="field"><label for="som">Sites won by year 5 <output id="somO"></output></label><input id="som" type="range" min="50" max="1500" step="50" value="300"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="funnel" id="funnel"></div>
+        <p class="small muted" id="mkNote" style="margin-top:12px"></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/gs.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id), { eur, pct } = GS;
+  const v = id => +$(id).value, on = id => $(id).checked;
+  const annuity = (P, r, n) => P * r / (1 - Math.pow(1 + r, -n));
+
+  function stack(o) {
+    const n = o.spf, y = o.yrs;
+    const items = [
+      ["Sensing (amortised)", o.sens / y, "var(--live)"],
+      [o.lease ? "Robot share (lease 10%)" : "Robot share", o.lease ? annuity(o.fleet, .1, y) / n : o.fleet / n / y, "var(--accent)"],
+      ["Connectivity, upkeep, model ops", o.ops, "#6250d6"],
+    ];
+    if (o.inst) items.push(["Install, dock, site power", 12000 / y, "#1baf7a"]);
+    if (o.maint) items.push(["Robot maintenance, batteries", 15000 / n, "#e87ba4"]);
+    if (o.svc) items.push(["Field service, support, insurance", 4769, "#e34948"]);
+    return items;
+  }
+  const opts = () => ({ price: v("price"), sens: v("sens"), fleet: v("fleet"), spf: v("spf"), yrs: v("yrs"), ops: v("ops"), lease: on("lease"), inst: on("inst"), maint: on("maint"), svc: on("svc") });
+  const deckOpts = o => ({ ...o, lease: false, inst: false, maint: false, svc: false });
+  const total = it => it.reduce((a, c) => a + c[1], 0);
+
+  function render() {
+    const o = opts();
+    $("priceO").textContent = eur(o.price); $("sensO").textContent = eur(o.sens); $("fleetO").textContent = eur(o.fleet);
+    $("spfO").textContent = o.spf; $("yrsO").textContent = o.yrs + " yrs"; $("opsO").textContent = eur(o.ops);
+    const it = stack(o), c = total(it), m = (o.price - c) / o.price;
+    $("kCost").textContent = eur(c); $("kCostD").textContent = it.length > 3 ? "with added costs" : "deck cost stack";
+    $("kMargin").textContent = pct(m); $("kMargin").className = "v num " + (m < 0 ? "bad" : m < .3 ? "mid" : "good");
+    $("kMarginD").textContent = it.length === 3 && o.spf === 8 && o.price === 20000 ? "the deck's ~49%" : "at your inputs";
+    let be = "—"; for (let n = 1; n <= 30; n++) { if (o.price - total(stack({ ...o, spf: n })) >= 0) { be = n; break; } } $("kBE").textContent = be === "—" ? "> 30" : be;
+    $("kSOM").textContent = eur((o.price - c) * 300 / 1e6, 2) + "M";
+    // stack bar
+    const scale = Math.max(o.price, c);
+    $("sb").innerHTML = it.map(([k, val, col]) => `<div style="flex-basis:${val / scale * 100}%;background:${col}" title="${k}: ${eur(val)}">${val / scale > (innerWidth < 700 ? .2 : .1) ? eur(val) : ""}</div>`).join("") +
+      (o.price > c ? `<div style="flex-basis:${(o.price - c) / scale * 100}%;background:var(--ok)">${(o.price - c) / scale > (innerWidth < 700 ? .3 : .16) ? "margin " + eur(o.price - c) : ""}</div>` : "");
+    $("sbl").innerHTML = it.map(([k, val, col]) => `<span><i style="background:${col}"></i>${k} · ${eur(val)}</span>`).join("") + (o.price > c ? `<span><i style="background:var(--ok)"></i>Gross margin · ${eur(o.price - c)}</span>` : `<span style="color:var(--crit)">Costs exceed price by ${eur(c - o.price)}</span>`);
+    $("sbTotal").textContent = `price ${eur(o.price)} · cost ${eur(c)}`;
+    // chart
+    const xs = Array.from({ length: 12 }, (_, i) => i + 1);
+    const deck = xs.map(n => (o.price - total(stack({ ...deckOpts(o), spf: n }))) / o.price * 100);
+    const cur = xs.map(n => (o.price - total(stack({ ...o, spf: n }))) / o.price * 100);
+    GS.lineChart($("mChart"), { xs, series: [{ name: "Deck stack", color: "var(--live)", values: deck }, { name: "Current stack", color: "var(--accent)", values: cur }],
+      yMin: Math.max(-100, Math.min(-20, ...deck, ...cur)), yMax: 80, xLabel: "sites sharing one robot fleet", xUnit: " sites per fleet", yFmt: (t, tip) => (tip ? t.toFixed(1) : t) + "%", refY: { value: 0, label: "break-even" }, markX: o.spf, height: 280 });
+    roi();
+  }
+  $("deckBtn").addEventListener("click", () => { ["lease", "inst", "maint", "svc"].forEach(id => $(id).checked = false); render(); });
+  $("fullBtn").addEventListener("click", () => { ["lease", "inst", "maint", "svc"].forEach(id => $(id).checked = true); render(); });
+  document.querySelectorAll("input").forEach(i => i.addEventListener("input", render));
+
+  function roi() {
+    const pi = v("pi") / 100, L = v("loss"), pd = v("pd"), pc = v("pc"), sa = v("sa"), co = v("co"), cc = v("cc"), fee = v("price");
+    $("piO").textContent = v("pi").toFixed(1) + "%"; $("lossO").textContent = eur(L / 1e6, 2) + "M"; $("pdO").textContent = Math.round(pd * 100) + "%";
+    $("pcO").textContent = Math.round(pc * 100) + "%"; $("saO").textContent = Math.round(sa * 100) + "%"; $("coO").textContent = co; $("ccO").textContent = eur(cc);
+    const avoided = pi * L * pd * pc * sa, ops = co * cc, tot = avoided + ops, mx = Math.max(fee, tot) * 1.05;
+    const rows = [["Expected avoided loss", avoided, "var(--live)"], ["Avoided call-outs", ops, "#6250d6"], ["Total value", tot, tot >= fee ? "var(--ok)" : "var(--accent)"], ["Fee", fee, "var(--ink-3)"]];
+    $("roi").innerHTML = rows.map(([k, val, col]) => `<div class="r"><span>${k}</span><span class="track"><i style="width:${val / mx * 100}%;background:${col}"></i></span><span class="v">${eur(val)}</span></div>`).join("");
+    const beP = (fee - ops) / (L * pd * pc * sa);
+    $("roiNote").innerHTML = tot >= fee
+      ? `<b style="color:var(--ok)">Value exceeds the fee</b> by ${eur(tot - fee)} per site-year (${(tot / fee).toFixed(1)}×).`
+      : `<b>Value is ${Math.round(tot / fee * 100)}% of the fee.</b> To break even at these inputs, incident chance would need to be ${beP > 1 ? "over 100%: not reachable" : (beP * 100).toFixed(1) + "% per site-year"}, or call-outs much higher. That points to tiered pricing by site risk.`;
+  }
+
+  /* market */
+  let ratio = "pl";
+  $("ratio").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; ratio = b.dataset.r; [...$("ratio").children].forEach(x => x.setAttribute("aria-pressed", x === b)); market(); });
+  function market() {
+    const price = v("price"), subs = ratio === "pl" ? 487 / 5.5 * 260 : 241 / 7.6 * 260, crit = v("crit") / 100, large = on("large") ? .8 : 1, som = v("som");
+    $("critO").textContent = Math.round(crit * 100) + "%"; $("somO").textContent = som + " sites";
+    const tam = subs * price, samSites = subs * crit * large, sam = samSites * price, somV = som * price;
+    const L = [["TAM", `${Math.round(subs).toLocaleString("en-GB")} HV/MV substations × ${eur(price)}`, tam, "var(--ink)"], ["SAM", `${Math.round(samSites).toLocaleString("en-GB")} top-criticality sites`, sam, "var(--live)"], ["SOM", `${som} sites across 2–3 DSOs by year 5`, somV, "var(--accent)"]];
+    $("funnel").innerHTML = L.map(([k, d, val, col]) => `<div class="lvl" style="width:${Math.max(30, Math.sqrt(val / tam) * 100)}%;background:${col};color:${col === "var(--ink)" ? "var(--bg)" : "var(--on-accent)"}"><span><b>${k}</b> &nbsp;${eur(val / 1e6, val < 1e7 ? 1 : 0)}M / yr</span><span class="small">${d}</span></div>`).join("");
+    $("mkNote").innerHTML = `Deck figures: TAM ≈ €460M, SAM ≈ €140M, SOM ≈ €6M ARR. The criticality share depends on how many sites governments actually designate; Germany's threshold is 500,000 people per facility, which may mean far fewer. <span class="tag a">Assumption</span>`;
+  }
+  ["crit", "som", "large", "price"].forEach(id => $(id).addEventListener("input", market));
+  render(); market();
+  document.addEventListener("gs:theme", render);
+})();
+</script>
+</body>
+</html>

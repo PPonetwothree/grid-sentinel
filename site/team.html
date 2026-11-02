@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grid Sentinel · Team and Roadmap</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/gs.css">
+<style>
+  .trl { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; position: relative; }
+  @media (max-width: 760px) { .trl { grid-template-columns: 1fr; } }
+  .trl .s { padding: 14px 14px 16px; border-top: 4px solid var(--line); display: grid; gap: 6px; align-content: start; }
+  .trl .s .n { font: 700 2rem/1 var(--f-display); color: var(--ink-3); }
+  .trl .s.now { border-top-color: var(--accent); }
+  .trl .s.now .n { color: var(--accent); }
+  .trl .s.plan { border-top-color: var(--live); }
+  .trl .s p { font-size: .82rem; color: var(--ink-2); }
+  .trl .s .when { font: 500 .72rem var(--f-mono); color: var(--ink-3); }
+  .stages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-3); }
+  @media (max-width: 760px) { .stages { grid-template-columns: 1fr; } }
+  .stage { cursor: pointer; text-align: left; font: inherit; color: inherit; display: grid; gap: 6px; align-content: start; }
+  .stage[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow); }
+  .stage .amt { font: 700 1.9rem/1 var(--f-display); font-variant-numeric: tabular-nums; }
+  .cell { display: inline-flex; align-items: center; justify-content: center; min-width: 54px; padding: 3px 8px; border-radius: 3px; font: 600 .72rem var(--f-mono); }
+  .c-0 { color: var(--ink-3); }
+  .c-adv { background: var(--panel-2); color: var(--ink-2); }
+  .c-con { background: var(--live-bg); color: var(--live); }
+  .c-fte { background: var(--warn-bg); color: var(--accent-ink); }
+  td.on, th.on { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  .kill li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="page-h">
+    <span class="eyebrow">Plan · proposed, not committed</span>
+    <h1 style="font-size:clamp(2rem,4.6vw,3.2rem)">Team, talent and roadmap</h1>
+    <p>Today Grid Sentinel is three students with a well-tested concept and clear gaps: power systems, robotics integration and utility sales. This page shows which skills each stage needs, how the money buys answers, and what result would make us change course or stop.</p>
+  </div>
+
+  <section style="padding-top:0">
+    <div class="stack-lg">
+      <div class="stack"><span class="eyebrow">Technology readiness</span><h2>From TRL 2 to a live pilot</h2></div>
+      <div class="trl">
+        <div class="s now"><span class="n">2</span><b>Concept · now</b><p>Architecture, requirements, KPI framework and value model written down. Nothing built yet.</p><span class="when">Nov 2026</span></div>
+        <div class="s plan"><span class="n">3</span><b>Proof of concept</b><p>Rules cut false alarms on recorded data; dispatch simulation against real geography.</p><span class="when">0–3 months</span></div>
+        <div class="s plan"><span class="n">4</span><b>Lab prototype</b><p>Integrated bench system; EMI and thermal pre-tests.</p><span class="when">3–9 months</span></div>
+        <div class="s plan"><span class="n">5</span><b>Test site</b><p>Test substation or perimeter-only trial.</p><span class="when">9–18 months</span></div>
+        <div class="s"><span class="n">6</span><b>Relevant environment</b><p>Shadow mode at a real site, across seasons.</p><span class="when">+ utility permissions, 6–12 months</span></div>
+        <div class="s"><span class="n">7</span><b>Operational</b><p>Live DSO sites, real alarms, real operators.</p><span class="when">pilot</span></div>
+      </div>
+      <p class="small muted">A trial at live sites with real alarms is closer to TRL 6–7 than to TRL 5. Utility permissions can add 6–12 months.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="stack-lg">
+      <div class="grid-2">
+        <div class="stack"><span class="eyebrow">Funding stages · estimates, not quotes</span><h2>Small money first, to buy answers</h2></div>
+        <p class="lede">Select a stage to see the team it needs in the table below.</p>
+      </div>
+      <div class="stages" id="stages"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="stack-lg">
+      <div class="grid-2">
+        <div class="stack"><span class="eyebrow">Talent required</span><h2>Who we need, and when</h2></div>
+        <div class="legend-tags"><span class="cell c-adv">Advisor</span> mentor or advisory hours <span class="cell c-con">Contract</span> part-time or consultancy <span class="cell c-fte">1 FTE</span> full-time hire</div>
+      </div>
+      <div class="tbl-wrap"><table id="roles"></table></div>
+      <div class="grid-3">
+        <div class="panel tight"><h4>Partners, not hires</h4><p class="small muted" style="margin-top:6px">Robot vendors (Korial, ANYbotics) for hardware and fleet software; an accredited EMC lab for IEC 61000-6-5 testing; an integrator as prime contractor for European DSOs.</p></div>
+        <div class="panel tight"><h4>Why a European presence matters</h4><p class="small muted" style="margin-top:6px">A European DSO won't buy from a student team in India today. We would need a European partner or presence, an experienced industry advisor, security credentials, and probably an integrator as prime contractor.</p></div>
+        <div class="panel tight"><h4>The mentor ask</h4><p class="small muted" style="margin-top:6px">One industry mentor who can open the door to a DSO's alarm logs is worth more at Stage A than any hire. It turns our biggest assumptions into measurements.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="grid-2">
+      <div class="stack">
+        <span class="eyebrow">What we can't answer yet</span>
+        <h2>Every unknown has a test</h2>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Question</th><th>How we close it</th></tr></thead>
+          <tbody>
+            <tr><td>Alarms per site; false share; time to verify</td><td>Alarm logs from one DSO under NDA</td></tr>
+            <tr><td>Is verification the main bottleneck?</td><td>15–20 structured interviews, tallied</td></tr>
+            <tr><td>What DSOs will pay</td><td>Current-spend data; willingness-to-pay interviews</td></tr>
+            <tr><td>Sites one robot can serve</td><td>Capacity simulation on a real site map</td></tr>
+            <tr><td>Real precision and recall</td><td>Shadow-mode trial across seasons</td></tr>
+            <tr><td>EMI survival</td><td>Lab pre-compliance, then IEC 61000-6-5</td></tr>
+            <tr><td>How many sites get designated critical</td><td>Track national lists; ask DSOs</td></tr>
+            <tr><td>Our moat</td><td>Design-partner agreement with data rights</td></tr>
+          </tbody></table></div>
+      </div>
+      <div class="stack">
+        <span class="eyebrow">Kill criteria</span>
+        <h2>What would make us change or stop</h2>
+        <div class="panel kill">
+          <ul class="small" style="padding-left:18px;margin:0">
+            <li><b>DSOs say verification isn't a top-three pain.</b> Stop or pivot.</li>
+            <li><b>Alarm volumes are low.</b> The occasional call-out is acceptable; no product.</li>
+            <li><b>Their cameras and monitoring centres already cope.</b> Narrow to blind spots, or stop.</li>
+            <li><b>Simple rules remove most false alarms.</b> Robots aren't needed: become a software-only product.</li>
+            <li><b>Nobody shares data or pays.</b> Stop.</li>
+          </ul>
+        </div>
+        <div class="callout good"><b>If you gave us €50k today, in 120 days we would know:</b> whether verification is a top-three pain at three or more DSOs; real alarm volumes from at least one DSO, if we get data; whether simple rules already solve most of it; and whether robot sharing is geographically feasible.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/gs.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const STAGES = [
+    { k: "A", name: "A · Validation", amt: "€20–55k", time: "~4 months", proves: "Pain is real and quantified; baseline from a DSO's alarm data; first rules and classifier results; whether robot sharing is geographically feasible.", buys: "Interviews and travel, a sensor kit and edge computer, test-fence data, expert time." },
+    { k: "B", name: "B · Lab prototype (TRL 4)", amt: "€185–470k", time: "9–12 months", proves: "Integrated system works in the lab; survives EMI and thermal pre-tests; a design partner signs up.", buys: "Hardware engineering, node boards, EMC pre-compliance, robot integration, first hires." },
+    { k: "C", name: "C · Pilot readiness", amt: "€0.9–1.85M", time: "18–24 months", proves: "Field trial against a measured baseline; a paid pilot.", buys: "Field-grade units, a robot and dock, safety case, certifications work, a European presence." },
+  ];
+  // value: 0 none, "adv", "con", number = FTE
+  const ROLES = [
+    ["Founders: product, discovery, fundraising", "Customer interviews, problem framing, the ask", [3, 3, 3], "Medha, Avinash, Aadi"],
+    ["Power systems / substation engineer", "HV safety, clearance zones, site rules, alarm data reading", ["adv", "adv", 1], "Gap today"],
+    ["Embedded & EMC hardware engineer", "Node PCB, protection, IEC 61000-6-5 pre-compliance", [0, 1, 1], "Hire"],
+    ["Edge ML / computer vision engineer", "Thermal detectors, fusion, calibration, TensorRT", ["con", 1, 2], "Founder-led first"],
+    ["Robotics integration (ROS 2, Nav2)", "Dispatcher, geofence, mission API to vendor robots", [0, "con", 1], "Gap today"],
+    ["OT cybersecurity", "IEC 62443 zones, secure boot, signed updates, one-way gateway", ["adv", "con", "con"], "Consultant"],
+    ["Utility sales / BD, Europe", "DSO access, procurement, framework contracts", ["adv", "adv", 1], "Gap today"],
+    ["Regulatory & legal", "GDPR, AI Act, CER/KRITIS, product liability, contracts", [0, "con", "con"], "Counsel hours"],
+    ["Field & integration engineer", "Installs, commissioning, site support", [0, 0, 1], "Or integrator partner"],
+  ];
+  let cur = 0;
+  const cell = x => x === 0 ? '<span class="cell c-0">—</span>' : x === "adv" ? '<span class="cell c-adv">Advisor</span>' : x === "con" ? '<span class="cell c-con">Contract</span>' : `<span class="cell c-fte">${x} FTE</span>`;
+  function render() {
+    $("stages").innerHTML = STAGES.map((s, i) => `<button type="button" class="panel stage" aria-pressed="${i === cur}" data-i="${i}"><span class="eyebrow">${s.name}</span><span class="amt">${s.amt}</span><span class="small mono muted">${s.time}</span><p class="small"><b>Proves:</b> ${s.proves}</p><p class="small muted"><b>Buys:</b> ${s.buys}</p></button>`).join("");
+    const fte = STAGES.map((_, i) => ROLES.reduce((a, r) => a + (typeof r[2][i] === "number" ? r[2][i] : 0), 0));
+    $("roles").innerHTML = `<thead><tr><th>Role</th><th>Does</th>${STAGES.map((s, i) => `<th class="${i === cur ? "on" : ""}">Stage ${s.k}</th>`).join("")}<th>Today</th></tr></thead><tbody>` +
+      ROLES.map(r => `<tr><td><b>${r[0]}</b></td><td class="small muted">${r[1]}</td>${r[2].map((x, i) => `<td class="${i === cur ? "on" : ""}">${cell(x)}</td>`).join("")}<td class="small">${r[3]}</td></tr>`).join("") +
+      `</tbody><tfoot><tr><td><b>Full-time headcount</b></td><td></td>${fte.map((f, i) => `<td class="${i === cur ? "on" : ""}"><b class="mono">${f}</b></td>`).join("")}<td></td></tr></tfoot>`;
+    document.querySelectorAll(".stage").forEach(b => b.addEventListener("click", () => { cur = +b.dataset.i; render(); }));
+  }
+  render();
+})();
+</script>
+</body>
+</html>

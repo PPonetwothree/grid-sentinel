@@ -1,0 +1,43 @@
+[build]
+  publish = "site"
+  # No build command needed — pure static HTML/CSS/JS
+
+# Pretty URLs: /simulation instead of /simulation.html
+[[redirects]]
+  from = "/simulation"
+  to = "/simulation.html"
+  status = 200
+
+[[redirects]]
+  from = "/fleet"
+  to = "/fleet.html"
+  status = 200
+
+[[redirects]]
+  from = "/engineering"
+  to = "/engineering.html"
+  status = 200
+
+[[redirects]]
+  from = "/economics"
+  to = "/economics.html"
+  status = 200
+
+[[redirects]]
+  from = "/team"
+  to = "/team.html"
+  status = 200
+
+# Security & caching headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+

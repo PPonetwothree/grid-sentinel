@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grid Sentinel · Robot Fleet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/gs.css">
+<style>
+  .lay { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+  @media (max-width: 900px) { .lay { grid-template-columns: 1fr; } }
+  .ctrl { display: grid; gap: 14px; position: sticky; top: 70px; }
+  @media (max-width: 900px) { .ctrl { position: static; } }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-3); }
+  @media (max-width: 700px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .tiles .panel { padding: var(--s-3) var(--s-4); }
+  .map svg { display: block; width: 100%; height: auto; }
+  .q { font: 500 .78rem var(--f-mono); color: var(--ink-2); }
+  .hist rect:hover { opacity: .75; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="page-h">
+    <span class="eyebrow">Interactive model · the biggest unknown</span>
+    <h1 style="font-size:clamp(2rem,4.6vw,3.2rem)">How many sites can one robot really serve?</h1>
+    <p>The deck says one fleet serves 6–10 sites, and that the robot leaves "its dock" with video in about 2 minutes. A ground robot can't do both: it can't drive between substations kilometres apart in two minutes. This model shows the trade-off so you can explain it with numbers instead of conceding it with words.</p>
+    <div class="callout"><b>Honest answer for the jury:</b> "Sites per robot is our biggest unknown. Realistically it's a mix: docked robots at the most critical yards, drones or mobile units elsewhere. We'll set the ratio from real geography and alarm rates."</div>
+  </div>
+
+  <div class="lay">
+    <div class="panel ctrl">
+      <div class="field"><span class="small muted">Verification mode</span>
+        <div class="seg" id="mode" style="flex-wrap:wrap">
+          <button type="button" data-m="shared" aria-pressed="true">Shared ground</button>
+          <button type="button" data-m="drone" aria-pressed="false">Drone hub</button>
+          <button type="button" data-m="docked" aria-pressed="false">Docked per site</button>
+        </div>
+      </div>
+      <div class="field" id="fN"><label for="n">Sites per robot <output id="nO"></output></label><input id="n" type="range" min="1" max="12" value="8"></div>
+      <div class="field"><label for="c">Cues reaching the robot, per site per day <output id="cO"></output></label><input id="c" type="range" min="0.1" max="4" step="0.1" value="0.5"></div>
+      <div class="field" id="fT"><label for="t">Travel time one way <output id="tO"></output></label><input id="t" type="range" min="2" max="45" value="15"></div>
+      <div class="field"><label for="s">Time on site to verify <output id="sO"></output></label><input id="s" type="range" min="5" max="40" value="20"></div>
+      <div class="field"><label for="r">Re-dock and recharge after each mission <output id="rO"></output></label><input id="r" type="range" min="0" max="40" value="16"></div>
+      <div class="field" id="fG" hidden><label for="g">Share of nights drones are grounded by weather <output id="gO"></output></label><input id="g" type="range" min="0" max="50" value="20"></div>
+      <p class="xs muted">All inputs are <span class="tag a">Assumption</span>. "Cues" are alarms the edge AI could not explain, not raw alarms, so better filtering means fewer robot trips. Defaults reproduce the briefing's example: 8 sites, 15 min each way, 0.5 cues per site per day.</p>
+    </div>
+
+    <div class="stack">
+      <div class="tiles">
+        <div class="panel stat"><span class="k">Robot busy</span><span class="v num" id="kU">—</span><span class="d">utilisation ρ</span></div>
+        <div class="panel stat"><span class="k">Mean time to robot on scene</span><span class="v num" id="kR">—</span><span class="d" id="kRd">queue wait + launch + travel</span></div>
+        <div class="panel stat"><span class="k">90th percentile</span><span class="v num" id="kP">—</span><span class="d">30-day Monte Carlo</span></div>
+        <div class="panel stat"><span class="k">Robots for 8 sites</span><span class="v num" id="kF">—</span><span class="d">to keep ρ ≤ 50%</span></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel map">
+          <div class="panel-h"><h4>Live replay</h4><span class="q" id="mq">queue 0</span></div>
+          <svg id="map" viewBox="0 0 420 340" role="img" aria-label="Map of sites around a robot hub, with cues appearing and the robot travelling to each"></svg>
+          <div class="row" style="justify-content:space-between"><span class="xs muted mono" id="mclock">day 1 · 00:00</span><div class="row" style="gap:6px"><button class="btn" id="attack" type="button" style="font-size:.78rem;padding:6px 10px">Coordinated attack: 4 sites at once</button></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><h4>Response time across 30 simulated days</h4><span class="xs muted">minutes from cue to robot on scene</span></div>
+          <svg id="hist" class="hist" viewBox="0 0 640 260" role="img" aria-label="Histogram of response times" style="width:100%;height:auto;display:block"></svg>
+          <p class="small muted" id="mcNote"></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h4>Mean time to robot on scene vs sites per robot</h4><span class="xs muted">current settings · gaps mean the robot can't keep up</span></div>
+        <svg id="curve" role="img" aria-label="Mean response time rises with the number of sites per robot" style="width:100%;height:auto;display:block"></svg>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h4>The three ways to verify, side by side</h4><span class="xs muted">same cue rate · your current inputs</span></div>
+        <div class="tbl-wrap" style="box-shadow:none"><table id="cmp"></table></div>
+        <p class="small muted" style="margin-top:10px">Drones are fastest to share but grounded by wind, rain and icing, and in Germany flights within 100 m of energy facilities need the operator's or authority's consent. That is why the plan is ground-robot-first in fenced yards.</p>
+      </div>
+
+      <div class="panel">
+        <h4>How the model works</h4>
+        <div class="prose small" style="margin-top:8px">
+          <p>One robot is a single-server queue. Cues arrive at random (Poisson) at rate λ = sites × cues per site per day. Each mission occupies the robot for S = launch (2 min) + travel out + time on site + travel back + re-dock. Utilisation is ρ = λ·S. With fixed mission times the mean wait in queue is ρ·S / (2(1 − ρ)) (Pollaczek–Khinchine), so waits explode as ρ approaches 1. At ρ ≥ 1 the queue grows forever.</p>
+          <p>The Monte Carlo run draws 30 days of cues, varies each site's distance by ±40% around the mean, and serves cues first come, first served. It reports what the formula cannot: the 90th percentile and the worst case.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/gs.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id), { el } = GS;
+  let mode = "shared";
+  const LAUNCH = 2;
+  function P() {
+    const n = mode === "docked" ? 1 : +$("n").value;
+    const t = mode === "docked" ? 2 : mode === "drone" ? Math.max(3, Math.round(+$("t").value * 0.45)) : +$("t").value;
+    return { n, c: +$("c").value, t, s: +$("s").value, r: +$("r").value, g: mode === "drone" ? +$("g").value / 100 : 0 };
+  }
+  function analytic(p, n = p.n) {
+    const lam = n * p.c / 1440, S = LAUNCH + 2 * p.t + p.s + p.r, rho = lam * S;
+    if (rho >= 1) return { rho, S, resp: Infinity };
+    const wq = rho * S / (2 * (1 - rho));
+    return { rho, S, wq, resp: wq + LAUNCH + p.t };
+  }
+  function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+  function monteCarlo(p, days = 30) {
+    const R = rng(42), lam = p.n * p.c / 1440;
+    const dist = Array.from({ length: p.n }, (_, i) => p.t * (0.6 + 0.8 * ((i * 0.618) % 1)));
+    let t = 0, free = 0; const res = []; let grounded = 0, maxQ = 0; const pend = [];
+    const end = days * 1440;
+    while (true) {
+      t += -Math.log(1 - R()) / lam; if (t > end) break;
+      const site = Math.floor(R() * p.n), d = dist[site];
+      if (p.g && R() < p.g) { grounded++; continue; }
+      const startT = Math.max(t, free);
+      while (pend.length && pend[0] <= t) pend.shift();
+      pend.push(startT); maxQ = Math.max(maxQ, pend.length);
+      res.push(startT - t + LAUNCH + d);
+      free = startT + LAUNCH + 2 * d + p.s + p.r;
+    }
+    res.sort((a, b) => a - b);
+    const q = f => res.length ? res[Math.min(res.length - 1, Math.floor(f * res.length))] : NaN;
+    return { res, p50: q(.5), p90: q(.9), max: res[res.length - 1] || 0, n: res.length, grounded, within10: res.filter(x => x <= 10).length / Math.max(1, res.length), maxQ, backlog: free - end };
+  }
+  const fm = m => !isFinite(m) ? "∞" : m < 60 ? `${m.toFixed(0)} min` : `${(m / 60).toFixed(1)} h`;
+
+  function render() {
+    const p = P();
+    $("nO").textContent = mode === "docked" ? "1 (own robot)" : p.n;
+    $("cO").textContent = p.c.toFixed(1); $("tO").textContent = mode === "docked" ? "~2 min in yard" : mode === "drone" ? `${p.t} min by air` : `${p.t} min`;
+    $("sO").textContent = p.s + " min"; $("rO").textContent = p.r + " min"; $("gO").textContent = Math.round(p.g * 100) + "%";
+    $("fN").hidden = mode === "docked"; $("fG").hidden = mode !== "drone";
+    const a = analytic(p);
+    $("kU").textContent = a.rho >= 1 ? ">100%" : Math.round(a.rho * 100) + "%";
+    $("kU").className = "v num " + (a.rho >= 1 ? "bad" : a.rho > .6 ? "mid" : "good");
+    $("kR").textContent = a.rho >= 1 ? "can't keep up" : fm(a.resp);
+    $("kR").className = "v num " + (a.rho >= 1 ? "bad" : a.resp > 30 ? "mid" : "good");
+    let k = 1; while (k < 20 && analytic(p, Math.ceil(8 / k)).rho > .5) k++;
+    $("kF").textContent = mode === "docked" ? "8" : k;
+    const mc = monteCarlo(p);
+    $("kP").textContent = a.rho >= 1 ? "—" : fm(mc.p90);
+    $("mcNote").innerHTML = a.rho >= 1
+      ? `<b style="color:var(--crit)">Overloaded.</b> After 30 days the robot is ${fm(mc.backlog)} behind. Cues arrive faster than one robot can finish missions.`
+      : `${mc.n} cues served. Median ${fm(mc.p50)}, 90th percentile ${fm(mc.p90)}, worst ${fm(mc.max)}. ${Math.round(mc.within10 * 100)}% reached within 10 min. Longest queue: ${mc.maxQ}.` + (mc.grounded ? ` ${mc.grounded} cues fell back to crews because drones were grounded.` : "");
+    hist(mc, a.rho >= 1);
+    curve(p);
+    compare(p);
+  }
+
+  function hist(mc, over) {
+    const svg = $("hist"); svg.innerHTML = "";
+    const W = 640, H = 260, m = { l: 44, r: 10, t: 12, b: 38 };
+    const cap = 120, bw = 5, bins = new Array(cap / bw + 1).fill(0);
+    mc.res.forEach(v => bins[Math.min(bins.length - 1, Math.floor(v / bw))]++);
+    const mx = Math.max(1, ...bins);
+    const X = i => m.l + i * (W - m.l - m.r) / bins.length, Y = v => m.t + (1 - v / mx) * (H - m.t - m.b);
+    GS.niceTicks(0, mx, 4).forEach(t => {
+      el("line", { x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t), stroke: "var(--line)", "stroke-width": t ? .6 : 1.2 }, svg);
+      const tx = el("text", { x: m.l - 6, y: Y(t) + 4, "text-anchor": "end", "font-size": 11, fill: "var(--ink-3)", class: "mono" }, svg); tx.textContent = t;
+    });
+    bins.forEach((b, i) => {
+      if (!b) return;
+      const r = el("rect", { x: X(i) + 1, y: Y(b), width: (W - m.l - m.r) / bins.length - 2, height: Math.max(1, H - m.b - Y(b)), rx: 2, fill: i * bw < 10 ? "var(--ok)" : over ? "var(--crit)" : "var(--live)" }, svg);
+      r.addEventListener("pointermove", e => GS.tip(`${i * bw}${i === bins.length - 1 ? "+" : "–" + (i + 1) * bw} min: <b>${b}</b> cues`, e.clientX, e.clientY));
+      r.addEventListener("pointerleave", () => GS.tip(null));
+    });
+    [0, 30, 60, 90, 120].forEach(v => { const t = el("text", { x: X(v / bw), y: H - m.b + 16, "text-anchor": "middle", "font-size": 11, fill: "var(--ink-3)", class: "mono" }, svg); t.textContent = v === 120 ? "120+" : v; });
+    const l = el("text", { x: (m.l + W) / 2, y: H - 4, "text-anchor": "middle", "font-size": 11.5, fill: "var(--ink-2)" }, svg); l.textContent = "minutes to robot on scene (green: within 10 min)";
+  }
+  function curve(p) {
+    const xs = Array.from({ length: 12 }, (_, i) => i + 1);
+    const vals = xs.map(n => { const a = analytic(p, n); return a.rho >= 1 ? NaN : a.resp; });
+    const finite = vals.filter(isFinite);
+    GS.lineChart($("curve"), {
+      xs, series: [{ name: "mean time to scene", color: "var(--accent)", values: vals }],
+      yMin: 0, yMax: Math.max(30, Math.min(240, Math.max(...finite, 0) * 1.1)), xLabel: "sites sharing one robot", xFmt: x => x, xUnit: " sites",
+      yFmt: (v, tip) => tip ? fm(v) : v, refY: { value: 10, label: "10 min" }, markX: mode === "docked" ? null : p.n, height: 260,
+    });
+  }
+  function compare(p) {
+    const rows = [
+      ["Shared ground robot", { ...p, t: +$("t").value, g: 0, n: +$("n").value }, "1 per " + $("n").value + " sites"],
+      ["Drone hub", { ...p, t: Math.max(3, Math.round(+$("t").value * .45)), g: +$("g").value / 100, n: +$("n").value }, "1 per " + $("n").value + " sites"],
+      ["Docked robot per site", { ...p, t: 2, g: 0, n: 1 }, "1 per site"],
+    ];
+    $("cmp").innerHTML = `<thead><tr><th>Mode</th><th>Robots</th><th class="r">Busy</th><th class="r">Mean to scene</th><th class="r">90th pct</th><th>Catch</th></tr></thead><tbody>` +
+      rows.map(([name, q, robots], i) => {
+        const a = analytic(q), mc = monteCarlo(q, 30);
+        const catchTxt = ["Road travel between sites", "Weather, aviation rules, 100 m consent zone", "Highest hardware cost per site"][i];
+        return `<tr><td><b>${name}</b></td><td>${robots}</td><td class="r">${a.rho >= 1 ? ">100%" : Math.round(a.rho * 100) + "%"}</td><td class="r">${a.rho >= 1 ? "overloaded" : fm(a.resp)}</td><td class="r">${a.rho >= 1 ? "—" : fm(mc.p90)}</td><td class="small muted">${catchTxt}</td></tr>`;
+      }).join("") + "</tbody>";
+  }
+
+  /* ---------- live replay ---------- */
+  const map = $("map");
+  let sites = [], robot = { x: 210, y: 170, busy: null, phase: "idle", t0: 0 }, queue = [], simMin = 0;
+  let mapEls = {};
+  function buildMap() {
+    map.innerHTML = "";
+    const p = P(), n = mode === "docked" ? 8 : p.n;
+    const cx = 210, cy = 170;
+    sites = Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2 - Math.PI / 2, f = .6 + .8 * ((i * .618) % 1);
+      const rad = mode === "docked" ? 120 : Math.min(150, 45 + p.t * 4.2 * f * .55);
+      return { x: cx + Math.cos(a) * rad, y: cy + Math.sin(a) * rad, d: p.t * f, cue: 0 };
+    });
+    const ring = el("circle", { cx, cy, r: 4, fill: "none" }, map);
+    sites.forEach((s, i) => {
+      if (mode !== "docked") el("line", { x1: cx, y1: cy, x2: s.x, y2: s.y, stroke: "var(--line)", "stroke-width": 1, "stroke-dasharray": mode === "drone" ? "2 4" : "" }, map);
+      s.el = el("rect", { x: s.x - 11, y: s.y - 9, width: 22, height: 18, rx: 2, fill: "var(--panel)", stroke: "currentColor", "stroke-width": 1.3 }, map);
+      const t = el("text", { x: s.x, y: s.y + 4, "text-anchor": "middle", "font-size": 10, class: "mono" }, map); t.textContent = "S" + (i + 1);
+      if (mode === "docked") el("rect", { x: s.x + 12, y: s.y + 4, width: 7, height: 6, rx: 1, fill: "var(--accent)" }, map);
+    });
+    if (mode !== "docked") {
+      el("circle", { cx, cy, r: 13, fill: "var(--panel-2)", stroke: "var(--accent)", "stroke-width": 1.5 }, map);
+      const t = el("text", { x: cx, y: cy + 27, "text-anchor": "middle", "font-size": 10, fill: "var(--accent-ink)" }, map); t.textContent = mode === "drone" ? "drone hub" : "robot depot";
+    }
+    mapEls.robot = el("circle", { cx, cy, r: 6, fill: "var(--accent)", stroke: "var(--panel)", "stroke-width": 2 }, map);
+    if (mode === "docked") mapEls.robot.setAttribute("opacity", 0);
+    robot = { x: cx, y: cy, phase: "idle" }; queue = [];
+  }
+  let last = performance.now(), acc = 0, R2 = rng(7);
+  const MIN_MS = 45;
+  function tick(now) {
+    const dt = Math.min(200, now - last); last = now; acc += dt;
+    const p = P();
+    while (acc >= MIN_MS) {
+      acc -= MIN_MS; simMin++;
+      const lam = sites.length * p.c / 1440;
+      if (R2() < lam) { const i = Math.floor(R2() * sites.length); queue.push({ i, at: simMin }); sites[i].cue = 1; }
+      stepRobot(p);
+    }
+    sites.forEach(s => s.el && s.el.setAttribute("fill", s.cue ? "var(--crit)" : "var(--panel)"));
+    if (mapEls.robot && mode !== "docked") { mapEls.robot.setAttribute("cx", robot.x); mapEls.robot.setAttribute("cy", robot.y); }
+    $("mq").textContent = `queue ${queue.length}` + (robot.phase !== "idle" ? ` · robot ${robot.phase}` : "");
+    const d = Math.floor(simMin / 1440) + 1, h = Math.floor(simMin % 1440 / 60), mi = simMin % 60;
+    $("mclock").textContent = `day ${d} · ${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")} · 1 s ≈ ${Math.round(1000 / MIN_MS)} sim-min`;
+    requestAnimationFrame(tick);
+  }
+  function stepRobot(p) {
+    if (mode === "docked") { queue.forEach(q => { sites[q.i].cue = 0; }); queue = []; return; }
+    const hub = { x: 210, y: 170 };
+    if (robot.phase === "idle" && queue.length) { robot.job = queue.shift(); robot.phase = "out"; robot.t = 0; robot.dur = LAUNCH + sites[robot.job.i].d; }
+    if (robot.phase === "idle") return;
+    robot.t++;
+    const s = sites[robot.job.i];
+    if (robot.phase === "out") { const k = Math.min(1, robot.t / robot.dur); robot.x = hub.x + (s.x - hub.x) * k; robot.y = hub.y + (s.y - hub.y) * k; if (k >= 1) { robot.phase = "verifying"; robot.t = 0; } }
+    else if (robot.phase === "verifying") { if (robot.t >= p.s) { s.cue = queue.some(q => q.i === robot.job.i) ? 1 : 0; robot.phase = "back"; robot.t = 0; } }
+    else if (robot.phase === "back") { const k = Math.min(1, robot.t / s.d); robot.x = s.x + (hub.x - s.x) * k; robot.y = s.y + (hub.y - s.y) * k; if (k >= 1) { robot.phase = "recharging"; robot.t = 0; } }
+    else if (robot.phase === "recharging") { if (robot.t >= p.r) robot.phase = "idle"; }
+  }
+  $("attack").addEventListener("click", () => {
+    const idx = [...sites.keys()].sort(() => R2() - .5).slice(0, Math.min(4, sites.length));
+    idx.forEach(i => { queue.push({ i, at: simMin }); sites[i].cue = 1; });
+    const p = P(), S = LAUNCH + 2 * p.t + p.s + p.r;
+    $("mcNote").innerHTML = mode === "docked"
+      ? "<b>Coordinated attack:</b> every site has its own robot, so all four are on scene in about 2 minutes."
+      : `<b>Coordinated attack:</b> one robot, four cues. The last site waits roughly ${fm(3 * S + LAUNCH + p.t)}. This is exactly when a shared fleet is weakest, so every cue alerts the operator at once with a "possible coordinated event" flag, and robots go to the most critical sites first.`;
+  });
+
+  $("mode").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    mode = b.dataset.m; [...$("mode").children].forEach(x => x.setAttribute("aria-pressed", x === b));
+    render(); buildMap();
+  });
+  ["n", "c", "t", "s", "r", "g"].forEach(id => $(id).addEventListener("input", () => { render(); if (id === "n" || id === "t") buildMap(); }));
+  render(); buildMap();
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) requestAnimationFrame(tick);
+  document.addEventListener("gs:theme", render);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grid Sentinel · Engineering</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/gs.css">
+<style>
+  .toc { display: flex; flex-wrap: wrap; gap: 6px; }
+  .toc a { font: 500 .8rem var(--f-mono); text-decoration: none; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; background: var(--panel); }
+  .toc a:hover { border-color: var(--accent); color: var(--ink); }
+  .sensors { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: var(--s-4); }
+  .sensor { display: grid; gap: 10px; align-content: start; }
+  .sensor canvas { width: 100%; height: 150px; border-radius: 4px; background: var(--panel-2); display: block; }
+  .sensor dl { display: grid; grid-template-columns: 92px 1fr; gap: 4px 10px; margin: 0; font-size: .82rem; }
+  .sensor dt { color: var(--ink-3); font: 500 .7rem var(--f-mono); letter-spacing: .05em; text-transform: uppercase; padding-top: 3px; }
+  .sensor dd { margin: 0; color: var(--ink-2); }
+  .viewbar { display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap; background: var(--bg); padding-block: 8px; }
+  .diagram { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: var(--s-3); }
+  .calc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-5); }
+  @media (max-width: 760px) { .calc { grid-template-columns: 1fr; } }
+  .big-out { font: 700 3rem/1 var(--f-display); font-variant-numeric: tabular-nums; }
+  tfoot td { font-weight: 600; background: var(--panel-2); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="page-h">
+    <span class="eyebrow">For engineers and mentors</span>
+    <h1 style="font-size:clamp(2rem,4.6vw,3.2rem)">Engineering: sensors, circuits and the edge</h1>
+    <p>What we would buy, what we would build, and how it connects. The circuits are a <b>proposed reference design</b>: a starting point for a TRL 4 bench prototype, not built and not EMI-tested. Part numbers show the class of component; final choices come out of bench testing.</p>
+    <nav class="toc" aria-label="On this page"><a href="#sensors">Sensors</a><a href="#architecture">System architecture</a><a href="#node">Sensor node circuit</a><a href="#edge">Edge box wiring</a><a href="#bom">Bill of materials</a><a href="#ai">AI pipeline</a><a href="#safety">Safety, EMI, cyber</a></nav>
+  </div>
+
+  <!-- SENSORS -->
+  <section id="sensors">
+    <div class="stack-lg">
+      <div class="stack"><span class="eyebrow">Layer 1 · Sense</span><h2>No single sensor can tell sabotage from a fox</h2>
+        <p class="lede">The bet is that combinations plus context (wind, rain, SCADA events, the maintenance schedule) explain most alarms, and the robot plus a human handle the rest. That is unproven.</p></div>
+      <div class="sensors" id="sensorGrid"></div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture">
+    <div class="stack-lg">
+      <div class="stack"><span class="eyebrow">How it connects</span><h2>Everything decides on site; only advisories cross into the DSO's network</h2>
+        <p class="lede">Sensing, classification and evidence capture keep running when the link drops, and queue for sync. The operator still needs a link to confirm, so a backup alert channel is part of the design.</p></div>
+      <figure class="diagram"><div class="svg-wrap"><svg id="arch" viewBox="0 0 1000 470" role="img" aria-label="System architecture: field devices feed a site edge computer; advisories pass one way through a gateway to the DSO security system and SCADA; an ops cloud receives fleet data and sends signed model updates"></svg></div>
+        <figcaption>Arrows into the DSO zone are one-way. Grid Sentinel has no path that can send a control command to grid equipment, and it has no connection to protection networks.</figcaption></figure>
+    </div>
+  </section>
+
+  <div class="viewbar" role="group" aria-label="Diagram detail"><span class="small muted">Circuit diagrams:</span>
+    <div class="seg" id="viewSeg"><button type="button" data-v="block" aria-pressed="true">Block view</button><button type="button" data-v="comp" aria-pressed="false">Component view</button></div>
+    <span class="tag p">Proposed reference design</span></div>
+
+  <!-- NODE -->
+  <section id="node" style="border-top:0">
+    <div class="stack-lg">
+      <div class="grid-2">
+        <div class="stack"><span class="eyebrow">Sensor node · one per fence panel</span><h2>Fence node: hear it, feel it, sign it</h2></div>
+        <p class="lede">An ESP32-S3 samples a low-noise accelerometer and an I²S microphone, computes features on board (RMS, peak, band energy, impact count) and sends small signed messages instead of raw streams. Power and data come over one shielded PoE cable; LoRa is a narrow backup for alarms only.</p>
+      </div>
+      <figure class="diagram"><div class="svg-wrap"><svg id="nodeSvg" viewBox="0 0 1000 600" role="img" aria-label="Sensor node circuit"></svg></div>
+        <figcaption id="nodeCap"></figcaption></figure>
+    </div>
+  </section>
+
+  <!-- EDGE -->
+  <section id="edge">
+    <div class="stack-lg">
+      <div class="grid-2">
+        <div class="stack"><span class="eyebrow">Edge box · one per site, in the control building</span><h2>Edge box: powered from the station battery, isolated from everything</h2></div>
+        <p class="lede">Substations already have a 110 V DC battery system that rides through outages. The edge box takes power from it through an isolated converter, so Grid Sentinel keeps watching during exactly the events it exists for.</p>
+      </div>
+      <figure class="diagram"><div class="svg-wrap"><svg id="edgeSvg" viewBox="0 0 1000 520" role="img" aria-label="Edge box wiring"></svg></div>
+        <figcaption id="edgeCap"></figcaption></figure>
+    </div>
+  </section>
+
+  <!-- BOM -->
+  <section id="bom">
+    <div class="stack-lg">
+      <div class="grid-2">
+        <div class="stack"><span class="eyebrow">Bill of materials</span><h2>What one protected site costs to equip</h2></div>
+        <div class="stack"><p class="lede">Low-volume prices from distributor and reseller listings, seen 2 Nov 2026. <span class="tag v">Listed</span> rows link to their source; <span class="tag a">Estimate</span> rows are ours. Listings are not quotes.</p>
+          <div class="field" style="max-width:360px"><label for="nNodes">Fence nodes per site <output id="nNodesO">12</output></label><input id="nNodes" type="range" min="4" max="30" value="12"></div></div>
+      </div>
+      <div class="tbl-wrap"><table id="bomT"></table></div>
+      <details class="panel tight"><summary style="cursor:pointer;font-weight:600">Fence node parts, itemised</summary><div class="tbl-wrap" style="margin-top:10px;box-shadow:none"><table id="nodeT"></table></div></details>
+      <div class="callout info" id="bomNote"></div>
+    </div>
+  </section>
+
+  <!-- AI -->
+  <section id="ai">
+    <div class="stack-lg">
+      <div class="stack"><span class="eyebrow">Layer 2 · Understand</span><h2>Learn what is normal, explain it away, escalate the rest</h2>
+        <p class="lede">Real attacks are too rare to train an "attack classifier". The pipeline instead learns each site's normal and the common benign causes, and sends anything it cannot explain to the robot and a human.</p></div>
+      <figure class="diagram"><div class="svg-wrap"><svg id="aiSvg" viewBox="0 0 1000 300" role="img" aria-label="Four-layer AI pipeline: rules, detectors, site anomaly model, fusion and calibration, then escalate"></svg></div>
+        <figcaption>Each layer can only remove an event by naming a cause. Anything left at the end is escalated, never dropped. Tested on sites and seasons the models have never seen.</figcaption></figure>
+
+      <div class="panel">
+        <div class="calc">
+          <div class="stack">
+            <h3>The accuracy trap</h3>
+            <p class="small muted">With rare events, "accuracy" means nothing. A system that never alarms is 99.8% accurate if 2 in 1,000 events are real. Move the sliders to see what precision and false alarms per week actually look like.</p>
+            <div class="field"><label for="br">Real events per 1,000 <output id="brO"></output></label><input id="br" type="range" min="0.5" max="50" step="0.5" value="2"></div>
+            <div class="field"><label for="rc">Recall: share of real events caught <output id="rcO"></output></label><input id="rc" type="range" min="0.5" max="0.99" step="0.01" value="0.9"></div>
+            <div class="field"><label for="fp">False-positive rate on benign events <output id="fpO"></output></label><input id="fp" type="range" min="0.001" max="0.2" step="0.001" value="0.1"></div>
+            <div class="field"><label for="ev">Raw sensor events per site per week <output id="evO"></output></label><input id="ev" type="range" min="10" max="500" step="10" value="100"></div>
+          </div>
+          <div class="stack">
+            <div class="grid-2" style="grid-template-columns:1fr 1fr;gap:var(--s-3)">
+              <div class="stat"><span class="k">"Accuracy"</span><span class="big-out" id="oAcc">—</span><span class="d">looks great, means little</span></div>
+              <div class="stat"><span class="k">Precision</span><span class="big-out" id="oPrec">—</span><span class="d">share of alarms that are real</span></div>
+              <div class="stat"><span class="k">False alarms / site / week</span><span class="big-out" id="oFa">—</span><span class="d">what the operator lives with</span></div>
+              <div class="stat"><span class="k">Missed real / site / year</span><span class="big-out" id="oMiss">—</span><span class="d">what the DSO risks</span></div>
+            </div>
+            <p class="small" id="oNote"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SAFETY -->
+  <section id="safety">
+    <div class="stack-lg">
+      <div class="stack"><span class="eyebrow">Integration, safety and security</span><h2>Designed to the standards. Not certified to them.</h2></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Risk</th><th>Design response</th><th>Standard / rule</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><b>Electrical interference</b><br><span class="small muted">switching and faults create spikes that crash ordinary electronics</span></td><td>Metal enclosures bonded at one point, shielded cable, TVS and common-mode chokes on every port, fibre for long runs, watchdog reset</td><td>IEC 61000-6-5 (immunity, power stations and substations)</td><td><span class="tag a">Untested</span></td></tr>
+          <tr><td><b>Robot near live parts</b></td><td>Geofence keeps the whole robot outside clearance zones with margin; independent e-stop; no dispatch while crews are on site; safe state = stopped away from live parts</td><td>DSO site rules; Machinery Regulation (from 20 Jan 2027)</td><td><span class="tag p">Proposed</span></td></tr>
+          <tr><td><b>New cyber attack surface</b></td><td>Own network zone; secure boot and flash encryption; device certificates in a secure element; signed firmware and model updates; tamper switch on every node</td><td>Designed to IEC 62443; Cyber Resilience Act reporting from 11 Sep 2026</td><td><span class="tag p">Proposed</span></td></tr>
+          <tr><td><b>Interfering with grid control</b></td><td>Advisory only. Security system first; SCADA only through an approved one-way gateway. No control command types exist in the gateway.</td><td>IEC 60870-5-104, IEC 61850, Modbus (protocol compatible ≠ integration approved)</td><td><span class="tag p">Proposed</span></td></tr>
+          <tr><td><b>Privacy</b></td><td>Blur everything outside the fence on the device; no face recognition; short retention; EU hosting. DSO is controller, we are processor.</td><td>GDPR</td><td><span class="tag p">Proposed</span></td></tr>
+          <tr><td><b>AI oversight</b></td><td>Logging of every decision, a human confirms every alert, data governance for training sets</td><td>EU AI Act, likely high-risk; obligations from 2 Dec 2027</td><td><span class="tag p">Proposed</span></td></tr>
+          <tr><td><b>Evidence trust</b></td><td>Every packet hashed and signed with a device key. Proves origin and integrity, not that the sensor saw the truth or who the intruder was.</td><td>ECDSA P-256 in a secure element</td><td><span class="tag i">Demonstrated in the simulator</span></td></tr>
+        </tbody></table></div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/gs.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id), { el } = GS;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ===================== SENSOR CARDS + ANIMATIONS ===================== */
+  const SENS = [
+    { id: "thermal", name: "Thermal (infrared)", tag: ["Prototype", "v"], senses: "Heat, day or night", good: "People at night; hot joints; transformer faults", fooled: "Sun-heated metal, reflections, animals", part: "Radiometric thermal camera, 384×288, PoE, pole-mounted" },
+    { id: "acoustic", name: "Acoustic (MEMS mic)", tag: ["Prototype", "v"], senses: "Sound, 50 Hz – 20 kHz", good: "Impacts, cutting, abnormal hum", fooled: "Wind, rain, traffic, normal 100 Hz transformer hum", part: "ICS-43434 I²S MEMS microphone, behind an IP67 membrane" },
+    { id: "vibration", name: "Vibration (MEMS accelerometer)", tag: ["Prototype", "v"], senses: "Shaking of fence and structures", good: "Climbing, cutting, tampering", fooled: "Wind, but wind shakes many panels at once", part: "ADXL355 low-noise 3-axis accelerometer, clamped to the post" },
+    { id: "pd", name: "Partial discharge", tag: ["Deferred", "p"], senses: "UHF and ultrasonic discharge pulses", good: "Early insulation failure", fooled: "Radio interference, switching transients", part: "Specialist UHF/ultrasound PD sensor. Costly, so later." },
+    { id: "lidar", name: "LiDAR", tag: ["On robot", "p"], senses: "Laser 3D scan", good: "Robot navigation and mapping without GPS", fooled: "Rain, snow, fog", part: "Part of the commercial robot's payload" },
+    { id: "weather", name: "Weather station", tag: ["Prototype", "v"], senses: "Wind, rain, temperature", good: "Explaining away false alarms: the cheapest big win", fooled: "Nothing; it is the context", part: "Ultrasonic wind + rain + temp, RS-485 Modbus RTU" },
+  ];
+  const grid = $("sensorGrid"), canv = {};
+  SENS.forEach(s => {
+    const d = document.createElement("article");
+    d.className = "panel sensor";
+    d.innerHTML = `<div class="panel-h" style="margin:0"><h3>${s.name}</h3><span class="tag ${s.tag[1]}">${s.tag[0]}</span></div>
+      <canvas id="cv-${s.id}" width="680" height="300" role="img" aria-label="${s.name} animation"></canvas>
+      <dl><dt>Senses</dt><dd>${s.senses}</dd><dt>Good for</dt><dd>${s.good}</dd><dt>Fooled by</dt><dd>${s.fooled}</dd><dt>Part</dt><dd>${s.part}</dd></dl>`;
+    grid.append(d);
+    canv[s.id] = { c: d.querySelector("canvas"), vis: true };
+  });
+  const io = new IntersectionObserver(es => es.forEach(e => { const k = e.target.id.slice(3); canv[k].vis = e.isIntersecting; }));
+  Object.values(canv).forEach(v => io.observe(v.c));
+
+  function iron(t) { t = Math.max(0, Math.min(1, t)); return `rgb(${Math.min(255, 255 * t * 1.8) | 0},${Math.max(0, Math.min(255, 255 * (t - .35) * 1.7)) | 0},${Math.max(0, Math.min(255, t < .3 ? 120 + t * 300 : 255 * (t - .8) * 4)) | 0})`; }
+  const label = (g, txt, x, y, color, align = "left") => { g.fillStyle = color || css("--ink-2"); g.font = "500 22px 'IBM Plex Mono', monospace"; g.textAlign = align; g.fillText(txt, x, y); };
+
+  const draw = {
+    thermal(g, W, H, t) {
+      const cw = W / 34, ch = H / 16;
+      const px = ((t / 60) % 44) - 6;
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 34; x++) {
+        let v = .1 + .04 * Math.sin(x / 4 + y / 6) + (y > 11 ? .05 : 0);
+        if (x % 6 === 0 && y < 12) v += .06;
+        const dx = (x - px) / 1.6, dy = (y - 7) / 4.6; if (dx * dx + dy * dy < 1) v = .82;
+        const hx = (x - px) / 1.1, hy = (y - 2) / 1.2; if (hx * hx + hy * hy < 1) v = .9;
+        const jx = (x - 27) / 1.3, jy = (y - 4) / 1.3, jd = jx * jx + jy * jy; if (jd < 3) v = Math.max(v, .99 - jd * .12);
+        g.fillStyle = iron(v); g.fillRect(x * cw, y * ch, cw + 1, ch + 1);
+      }
+      label(g, "person 34 °C", Math.max(8, (px - 3) * cw), H - 16, "#fff");
+      label(g, "hot joint 78 °C", W - 12, 26, "#fff", "right");
+    },
+    acoustic(g, W, H, t) {
+      const burst = (t % 5000) > 3200 && (t % 5000) < 4300;
+      g.strokeStyle = burst ? css("--crit") : css("--live"); g.lineWidth = 2.4; g.beginPath();
+      for (let x = 0; x < W; x++) {
+        const tt = x / W * 6 + t / 400;
+        let v = Math.sin(tt * 8) * .18 + Math.sin(tt * 16) * .06 + (Math.random() - .5) * .05;
+        if (burst) v += (Math.random() - .5) * 1.1 * Math.abs(Math.sin(tt * 3));
+        const y = H / 2 - v * H * .38;
+        x ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.stroke();
+      label(g, burst ? "cutting: broadband 2–8 kHz bursts" : "transformer hum: 100 Hz + harmonics", 14, 30, burst ? css("--crit") : css("--ink-2"));
+    },
+    vibration(g, W, H, t) {
+      const mode = Math.floor(t / 6000) % 2 ? "climb" : "wind";
+      const rows = ["P4", "P5", "P6"], rh = H / 3;
+      rows.forEach((p, i) => {
+        g.strokeStyle = mode === "climb" && i === 2 ? css("--crit") : css("--live"); g.lineWidth = 2;
+        g.beginPath();
+        for (let x = 0; x < W; x++) {
+          const tt = x / W * 5 + t / 500;
+          let v = mode === "wind" ? Math.sin(tt * 2.2 + i * .25) * .55 + Math.sin(tt * 5.1) * .15 : (Math.random() - .5) * .08;
+          if (mode === "climb" && i === 2) v = (Math.random() - .5) * 1.4 * (Math.sin(tt * 4) > .2 ? 1 : .2);
+          const y = rh * i + rh / 2 - v * rh * .4;
+          x ? g.lineTo(x, y) : g.moveTo(x, y);
+        }
+        g.stroke(); label(g, p, 10, rh * i + 26, css("--ink-3"));
+      });
+      label(g, mode === "wind" ? "wind: all panels sway together" : "climb: one panel, sharp and local", W - 12, 26, mode === "wind" ? css("--ink-2") : css("--crit"), "right");
+    },
+    pd(g, W, H, t) {
+      g.strokeStyle = css("--ink-3"); g.lineWidth = 1.6; g.beginPath();
+      for (let x = 0; x < W; x++) { const y = H / 2 - Math.sin(x / W * Math.PI * 2) * H * .32; x ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.stroke();
+      g.strokeStyle = css("--line"); g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke();
+      const n = 90, seed = Math.floor(t / 90);
+      for (let k = 0; k < n; k++) {
+        const r = Math.abs(Math.sin((seed - k) * 12.9898 + k * 78.233) * 43758.5453) % 1, r2 = Math.abs(Math.sin((seed - k) * 4.1 + k) * 9631.7) % 1;
+        const pos = r < .5 ? 30 + r2 * 60 : 210 + r2 * 60;
+        const x = pos / 360 * W, amp = (r < .5 ? 1 : -1) * (.12 + .3 * Math.abs(Math.sin(k * 3.3)));
+        g.globalAlpha = 1 - k / n; g.fillStyle = css("--accent");
+        g.beginPath(); g.arc(x, H / 2 - amp * H, 4, 0, 7); g.fill();
+      }
+      g.globalAlpha = 1;
+      label(g, "phase-resolved PD: clusters on rising half-cycles", 12, 30);
+      label(g, "0°", 6, H - 12, css("--ink-3")); label(g, "360°", W - 8, H - 12, css("--ink-3"), "right");
+    },
+    lidar(g, W, H, t) {
+      const cx = W * .5, cy = H * .55, a = (t / 900) % (Math.PI * 2);
+      const objs = [[-.9, -.6, .5, .1], [.25, -.5, .3, .3], [-.4, .2, .25, .25], [.55, .25, .2, .35]];
+      g.fillStyle = css("--ink-3");
+      for (let k = 0; k < 360; k += 2) {
+        const ang = k / 180 * Math.PI, d = ((a - ang) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        if (d > 4) continue;
+        let best = 1.15;
+        objs.forEach(([ox, oy, w, h]) => { for (let s = 0; s < best; s += .01) { const x = Math.cos(ang) * s, y = Math.sin(ang) * s; if (x > ox && x < ox + w && y > oy && y < oy + h) { best = s; break; } } });
+        g.globalAlpha = 1 - d / 4;
+        g.fillStyle = best < 1.15 ? css("--accent") : css("--ink-3");
+        g.beginPath(); g.arc(cx + Math.cos(ang) * best * W * .42, cy + Math.sin(ang) * best * H * .75, 3, 0, 7); g.fill();
+      }
+      g.globalAlpha = .25; g.fillStyle = css("--live"); g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, W, a - .25, a); g.fill(); g.globalAlpha = 1;
+      g.fillStyle = css("--accent"); g.fillRect(cx - 12, cy - 8, 24, 16);
+      label(g, "returns from equipment and fence", 12, 30);
+    },
+    weather(g, W, H, t) {
+      const ws = 4 + 6 * (1 + Math.sin(t / 3000)) / 2, cx = W * .26, cy = H * .55, a = t / 1000 * ws * .9;
+      g.strokeStyle = css("--ink"); g.lineWidth = 3;
+      for (let k = 0; k < 3; k++) { const ang = a + k * 2.094; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(ang) * 60, cy + Math.sin(ang) * 60); g.stroke(); g.fillStyle = css("--accent"); g.beginPath(); g.arc(cx + Math.cos(ang) * 60, cy + Math.sin(ang) * 60, 13, 0, 7); g.fill(); }
+      g.fillStyle = css("--ink"); g.font = "600 64px 'Barlow Condensed', sans-serif"; g.textAlign = "left";
+      g.fillText(ws.toFixed(1) + " m/s", W * .5, H * .5);
+      label(g, ws > 8 ? "above 8 m/s: wind rule armed" : "calm: fence motion needs a cause", W * .5, H * .5 + 44, ws > 8 ? css("--accent-ink") : css("--ink-2"));
+    },
+  };
+  let t0 = performance.now();
+  function loop(now) {
+    const t = now - t0;
+    Object.entries(canv).forEach(([k, v]) => {
+      if (!v.vis) return;
+      const g = v.c.getContext("2d"), W = v.c.width, H = v.c.height;
+      g.clearRect(0, 0, W, H); draw[k](g, W, H, t);
+    });
+    if (!reduce) requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* ===================== DIAGRAM HELPERS ===================== */
+  function D(svg) {
+    svg.innerHTML = "";
+    const defs = el("defs", {}, svg);
+    const mk = el("marker", { id: svg.id + "-ar", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+    el("path", { d: "M0,0 L10,5 L0,10 z", fill: "currentColor" }, mk);
+    const api = {
+      zone(x, y, w, h, t, color) {
+        el("rect", { x, y, width: w, height: h, rx: 8, fill: "none", stroke: color || "var(--line)", "stroke-width": 1.4, "stroke-dasharray": "6 4" }, svg);
+        const tx = el("text", { x: x + 10, y: y + 18, "font-size": 11.5, "font-weight": 600, fill: color || "var(--ink-3)", class: "mono", "letter-spacing": ".06em" }, svg); tx.textContent = t;
+      },
+      box(x, y, w, h, title, sub, kind) {
+        const fill = { acc: "var(--warn-bg)", ok: "var(--ok-bg)", live: "var(--live-bg)", dim: "var(--panel-2)" }[kind] || "var(--panel)";
+        const stroke = { acc: "var(--accent)", ok: "var(--ok)", live: "var(--live)" }[kind] || "currentColor";
+        el("rect", { x, y, width: w, height: h, rx: 5, fill, stroke, "stroke-width": 1.4 }, svg);
+        const a = el("text", { x: x + w / 2, y: y + (sub ? h / 2 - 3 : h / 2 + 5), "text-anchor": "middle", "font-size": 13, "font-weight": 600 }, svg); a.textContent = title;
+        if (sub) [].concat(sub).forEach((s, i) => { const b = el("text", { x: x + w / 2, y: y + h / 2 + 14 + i * 14, "text-anchor": "middle", "font-size": 11, fill: "var(--ink-2)" }, svg); b.textContent = s; });
+      },
+      wire(pts, lbl, o = {}) {
+        el("polyline", { points: pts.map(p => p.join(",")).join(" "), fill: "none", stroke: o.color || "currentColor", "stroke-width": o.w || 1.4, "stroke-dasharray": o.dash || "", "marker-end": o.arrow === false ? "" : `url(#${svg.id}-ar)`, "stroke-linejoin": "round" }, svg);
+        if (lbl) { const [lx, ly] = o.at || [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2 - 6]; const t = el("text", { x: lx, y: ly, "text-anchor": o.anchor || "middle", "font-size": o.fs || 10.5, fill: o.lc || "var(--ink-2)", class: o.mono ? "mono" : "" }, svg); t.textContent = lbl; }
+      },
+      text(x, y, s, o = {}) { const t = el("text", Object.assign({ x, y, "font-size": 11, fill: "var(--ink-2)" }, o), svg); t.textContent = s; return t; },
+      dot(x, y) { el("circle", { cx: x, cy: y, r: 3, fill: "currentColor" }, svg); },
+    };
+    return api;
+  }
+
+  /* ===================== ARCHITECTURE ===================== */
+  (function arch() {
+    const d = D($("arch"));
+    d.zone(10, 10, 300, 450, "FIELD · IN THE YARD");
+    d.zone(340, 10, 300, 450, "SITE EDGE · CONTROL BUILDING", "var(--accent)");
+    d.zone(690, 10, 300, 300, "DSO NETWORK", "var(--live)");
+    d.zone(690, 330, 300, 130, "OPS CLOUD · EU HOSTED");
+    d.box(30, 45, 260, 54, "12 fence nodes", "accelerometer + microphone");
+    d.box(30, 120, 260, 54, "2 thermal cameras", "radiometric, PoE");
+    d.box(30, 195, 260, 54, "Weather station", "wind · rain · temperature");
+    d.box(30, 270, 260, 54, "Ground robot + dock", "LiDAR · PTZ thermal + optical", "acc");
+    d.box(30, 370, 260, 54, "Backup radio", "LoRa (alarms only)", "dim");
+    d.box(360, 70, 260, 70, "Substation PoE switch", ["IEC 61850-3 rated", "own VLAN, PTP time"]);
+    d.box(360, 190, 260, 92, "Edge AI computer", ["Jetson-class · rules + fusion", "dispatcher · evidence signer", "1 TB store-and-forward"], "acc");
+    d.box(360, 330, 260, 54, "LTE / 5G router", "VPN · dual SIM");
+    d.box(360, 400, 260, 46, "One-way gateway", "", "live");
+    d.box(710, 60, 260, 60, "DSO security system", "primary destination", "live");
+    d.box(710, 170, 260, 70, "SCADA / control room", ["IEC 60870-5-104 or 61850", "advisory points only"], "live");
+    d.box(710, 365, 260, 76, "Fleet + model ops", ["health monitoring", "signed model updates"]);
+    d.wire([[290, 72], [358, 96]], "PoE + data", { at: [322, 76] });
+    d.wire([[290, 147], [358, 112]], "RTSP / ONVIF", { at: [322, 142] });
+    d.wire([[290, 222], [358, 222]], "RS-485 Modbus", { at: [324, 214] });
+    d.wire([[290, 297], [358, 262]], "Wi-Fi 6 / private 5G", { at: [318, 296], anchor: "middle" });
+    d.wire([[490, 140], [490, 188]], "", {});
+    d.wire([[290, 397], [450, 397], [450, 284]], "alarm-only backup", { at: [370, 390] });
+    d.wire([[560, 282], [560, 398]], "", {});
+    d.text(570, 340, "advisories", { "font-size": 10.5 });
+    d.wire([[620, 423], [660, 423], [660, 90], [708, 90]], "one-way", { at: [662, 252], anchor: "start", lc: "var(--live)", color: "var(--live)" });
+    d.wire([[660, 205], [708, 205]], "", { color: "var(--live)" });
+    d.wire([[620, 357], [708, 395]], "telemetry out", { at: [668, 362] });
+    d.wire([[708, 418], [622, 372]], "signed updates in", { at: [665, 410], dash: "4 3" });
+    d.wire([[490, 384], [490, 398]], "", { arrow: false });
+    d.text(840, 290, "No control path back", { "text-anchor": "middle", fill: "var(--crit)", "font-weight": 600, "font-size": 11.5 });
+  })();
+
+  /* ===================== NODE ===================== */
+  function nodeBlock() {
+    const svg = $("nodeSvg"); svg.setAttribute("viewBox", "0 0 1000 420");
+    const d = D(svg);
+    d.box(20, 160, 180, 90, "Power", ["PoE 802.3af in", "surge + EMI filter", "3.3 V · 1 F hold-up"]);
+    d.box(400, 140, 200, 130, "Microcontroller", ["ESP32-S3", "on-board features:", "RMS · peak · band energy", "secure boot + flash encryption"], "acc");
+    d.box(780, 30, 200, 80, "Vibration", ["low-noise accelerometer", "SPI · 1 kHz"]);
+    d.box(780, 130, 200, 80, "Sound", ["I²S MEMS microphone", "48 kHz, 24-bit"]);
+    d.box(780, 230, 200, 80, "Security", ["secure element (keys)", "tamper switch"], "ok");
+    d.box(780, 330, 200, 70, "Comms", ["Ethernet (primary)", "LoRa (backup)"], "live");
+    d.wire([[200, 205], [398, 205]], "3.3 V clean rail", {});
+    d.wire([[778, 70], [602, 170]], "raw samples", { at: [690, 108] });
+    d.wire([[778, 170], [602, 195]], "audio frames", { at: [690, 172] });
+    d.wire([[602, 230], [778, 270]], "sign(features)", { at: [690, 240] });
+    d.wire([[602, 255], [778, 365]], "signed event messages", { at: [665, 330] });
+    d.wire([[880, 400], [880, 412], [110, 412], [110, 252]], "power and data share one shielded cable", { at: [480, 406], dash: "4 3" });
+    $("nodeCap").textContent = "Block view. The node never streams raw audio off site: it sends features and short clips only on request, which keeps bandwidth low and helps GDPR.";
+  }
+  function nodeComp() {
+    const svg = $("nodeSvg"); svg.setAttribute("viewBox", "0 0 1000 600");
+    const d = D(svg);
+    // power column
+    d.box(20, 40, 170, 56, "J1 RJ45 + magnetics", "shielded · PoE in");
+    d.box(20, 140, 170, 56, "U1 PoE PD module", "802.3af · 5 V out");
+    d.box(20, 240, 170, 56, "Input protection", "TVS · CM choke · ferrite");
+    d.box(20, 340, 170, 56, "U2 buck 3.3 V / 2 A", "TLV62569-class");
+    d.box(20, 440, 170, 56, "C1 1 F supercap", "last-gasp hold-up");
+    d.wire([[105, 96], [105, 138]], "48 V", { at: [118, 122], anchor: "start", mono: true });
+    d.wire([[105, 196], [105, 238]], "5 V", { at: [118, 222], anchor: "start", mono: true });
+    d.wire([[105, 296], [105, 338]], "5 V filt", { at: [118, 322], anchor: "start", mono: true });
+    d.wire([[105, 396], [105, 438]], "", {});
+    d.wire([[190, 368], [300, 368], [300, 100], [378, 100]], "3V3", { at: [306, 240], anchor: "start", mono: true, color: "var(--accent)", lc: "var(--accent-ink)" });
+    d.text(200, 552, "GND: single-point bond to enclosure", { "font-size": 10.5 });
+    d.wire([[190, 468], [330, 468], [330, 530], [378, 530]], "", { arrow: false });
+    // MCU
+    el("rect", { x: 380, y: 60, width: 200, height: 500, rx: 4, fill: "var(--warn-bg)", stroke: "var(--accent)", "stroke-width": 1.6 }, svg);
+    d.text(480, 330, "U3", { "text-anchor": "middle", "font-size": 14, "font-weight": 700, fill: "var(--ink)" });
+    d.text(480, 348, "ESP32-S3-WROOM-1", { "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: "var(--ink)" });
+    d.text(480, 364, "N8R2 · secure boot", { "text-anchor": "middle", "font-size": 10.5 });
+    d.text(388, 104, "3V3", { class: "mono", "font-size": 10 }); d.text(388, 534, "GND", { class: "mono", "font-size": 10 });
+    const pins = [
+      [90, "IO1", "SDA", 0], [112, "IO2", "SCL", 0],
+      [150, "IO4", "I2S_BCK", 1], [172, "IO5", "I2S_WS", 1], [194, "IO6", "I2S_SD", 1],
+      [240, "IO11-13", "SPI bus", 9],
+      [270, "IO9", "CS_ACC", 2], [292, "IO15", "ACC_DRDY", 2],
+      [330, "IO10", "CS_ETH", 3], [352, "IO14", "ETH_INT", 3], [374, "IO21", "ETH_RST", 3],
+      [412, "IO16", "CS_LORA", 4], [434, "IO17", "LORA_BUSY", 4], [456, "IO18", "LORA_DIO1", 4], [478, "IO8", "LORA_RST", 4],
+      [516, "IO47", "TAMPER", 5], [538, "IO48", "LED", 6],
+    ];
+    pins.forEach(([y, io, net, dev]) => {
+      d.text(574, y + 4, io, { "text-anchor": "end", class: "mono", "font-size": 10, fill: "var(--ink)" });
+      if (dev === 9) {
+        el("line", { x1: 580, y1: y, x2: 650, y2: y, stroke: "var(--live)", "stroke-width": 4 }, svg);
+        el("line", { x1: 650, y1: y, x2: 650, y2: 470, stroke: "var(--live)", "stroke-width": 4 }, svg);
+        [300, 382, 486].forEach(ty => { el("line", { x1: 650, y1: ty, x2: 700, y2: ty, stroke: "var(--live)", "stroke-width": 4 }, svg); el("circle", { cx: 650, cy: ty, r: 4, fill: "var(--live)" }, svg); });
+        el("line", { x1: 650, y1: 470, x2: 650, y2: 486, stroke: "var(--live)", "stroke-width": 4 }, svg);
+        d.text(600, y - 8, "MOSI · SCK · MISO", { class: "mono", "font-size": 9.5, fill: "var(--live)" });
+        return;
+      }
+      el("line", { x1: 580, y1: y, x2: 700, y2: y, stroke: "currentColor", "stroke-width": 1.1 }, svg);
+      d.text(615, y - 3, net, { "text-anchor": "middle", class: "mono", "font-size": 9, fill: "var(--ink-3)" });
+    });
+    const dev = (y, h, t, s, k) => { el("rect", { x: 700, y, width: 285, height: h, rx: 4, fill: k ? "var(--ok-bg)" : "var(--panel)", stroke: k ? "var(--ok)" : "currentColor", "stroke-width": 1.3 }, svg); d.text(712, y + 17, t, { "font-size": 12, "font-weight": 600, fill: "var(--ink)" }); if (s) d.text(712, y + 32, s, { "font-size": 10, fill: "var(--ink-2)" }); };
+    dev(70, 56, "U4 ATECC608B secure element", "I²C · device key, ECDSA P-256", 1);
+    dev(134, 74, "U5 ICS-43434 MEMS mic", "I²S · 24-bit · IP67 acoustic membrane");
+    dev(254, 56, "U6 ADXL355 accelerometer", "SPI · 25 µg/√Hz · post clamp");
+    dev(314, 76, "U7 W5500 Ethernet MAC/PHY", "SPI · hardwired TCP/IP → J1");
+    dev(398, 96, "U8 SX1262 LoRa 868 MHz", "SPI · backup alarm channel · ext. antenna");
+    dev(502, 30, "SW1 reed + lid switch", "", 1);
+    dev(534, 24, "D1 status LED", "");
+    d.wire([[985, 352], [995, 352], [995, 20], [150, 20], [150, 38]], "Ethernet pairs via magnetics", { at: [570, 15], dash: "4 3", mono: true });
+    $("nodeCap").textContent = "Component view. Pin map for a bench prototype. Native USB (IO19/20) and JTAG are disabled by eFuse in production. Each IC gets local decoupling; every external port gets TVS protection. Not built, not EMI-tested.";
+  }
+
+  /* ===================== EDGE ===================== */
+  function edgeBlock() {
+    const svg = $("edgeSvg"); svg.setAttribute("viewBox", "0 0 1000 380");
+    const d = D(svg);
+    d.box(20, 150, 170, 80, "Station battery", ["110 V DC", "rides through outages"], "dim");
+    d.box(250, 150, 170, 80, "Isolated power", ["110 V → 24 V", "kV-class isolation"]);
+    d.box(480, 40, 220, 80, "Network", ["PoE switch, own VLAN", "precise time (PTP / GNSS)"]);
+    d.box(480, 150, 220, 90, "Edge AI computer", ["fusion · dispatcher", "evidence signing", "store-and-forward"], "acc");
+    d.box(480, 280, 220, 70, "Uplinks", ["LTE/5G to ops cloud", "one-way to DSO"], "live");
+    d.box(790, 40, 190, 80, "Field devices", ["nodes · cameras", "weather · robot dock"]);
+    d.box(790, 270, 190, 80, "DSO + cloud", ["advisories out", "signed updates in"], "live");
+    d.wire([[190, 190], [248, 190]], "", {});
+    d.wire([[420, 190], [478, 190]], "24 V", { at: [449, 182] });
+    d.wire([[420, 175], [450, 175], [450, 80], [478, 80]], "", {});
+    d.wire([[420, 205], [450, 205], [450, 315], [478, 315]], "", {});
+    d.wire([[788, 80], [702, 80]], "data in", {});
+    d.wire([[590, 120], [590, 148]], "", {});
+    d.wire([[590, 240], [590, 278]], "", {});
+    d.wire([[702, 315], [788, 315]], "advisories", {});
+    $("edgeCap").textContent = "Block view. Power, compute and network are separate so a fault in one never silences the others.";
+  }
+  function edgeComp() {
+    const svg = $("edgeSvg"); svg.setAttribute("viewBox", "0 0 1000 520");
+    const d = D(svg);
+    d.box(20, 30, 190, 60, "Station battery", "110 V DC (existing)", "dim");
+    d.box(20, 130, 190, 70, "PS1 isolated DC-DC", ["110 V DC → 24 V, DIN rail", "≥ 3 kV isolation"]);
+    d.box(20, 240, 190, 56, "F1 fused 24 V bus", "per-load breakers");
+    d.box(20, 340, 190, 60, "Station AC aux", "230 V AC → robot dock", "dim");
+    d.wire([[115, 90], [115, 128]], "", {});
+    d.wire([[115, 200], [115, 238]], "24 V", { at: [128, 224], anchor: "start", mono: true });
+    d.box(300, 30, 230, 96, "SW1 managed PoE switch", ["8× PoE+ · 2× SFP fibre", "IEC 61850-3 / IEEE 1613", "PTP IEEE 1588 boundary clock"]);
+    d.box(300, 170, 230, 120, "E1 edge computer", ["Jetson Orin Nano 8 GB, fanless", "−25 to +70 °C, 9–36 V in", "TensorRT models", "1 TB NVMe evidence buffer", "TPM 2.0 for signing keys"], "acc");
+    d.box(300, 330, 230, 56, "GNSS timing receiver", "PPS → E1 · time source");
+    d.box(300, 420, 230, 56, "Isolated USB-RS485", "Modbus RTU master");
+    d.box(620, 30, 170, 56, "12 fence nodes", "PoE · copper or fibre");
+    d.box(620, 100, 170, 56, "2 thermal cameras", "PoE+ · RTSP/ONVIF");
+    d.box(620, 170, 170, 56, "Robot dock + AP", "Wi-Fi 6 / private 5G");
+    d.box(620, 420, 170, 56, "Weather station", "RS-485, 2-wire");
+    d.box(820, 170, 160, 66, "R1 LTE/5G router", ["IPsec VPN", "SMS backup alerts"], "live");
+    d.box(820, 280, 160, 76, "G1 one-way gateway", ["data diode", "fibre out only"], "live");
+    d.box(820, 400, 160, 66, "DSO security system", "then SCADA advisory", "live");
+    d.wire([[210, 268], [250, 268], [250, 78], [298, 78]], "24 V", { at: [256, 160], anchor: "start", mono: true });
+    d.wire([[250, 230], [298, 230]], "", {});
+    d.wire([[250, 268], [250, 358], [298, 358]], "", {});
+    d.wire([[618, 58], [532, 58]], "", {});
+    d.wire([[618, 128], [560, 128], [560, 100], [532, 100]], "", {});
+    d.wire([[618, 198], [560, 198], [560, 110], [532, 110]], "", { arrow: false });
+    d.wire([[415, 126], [415, 168]], "1 GbE", { at: [424, 152], anchor: "start", mono: true });
+    d.wire([[415, 330], [415, 292]], "PPS", { at: [424, 316], anchor: "start", mono: true });
+    d.wire([[415, 420], [415, 388]], "", { arrow: false });
+    d.wire([[618, 448], [532, 448]], "A/B", { at: [575, 441], mono: true });
+    d.wire([[532, 210], [818, 210]], "", { at: [680, 204] });
+    d.text(675, 255, "telemetry, model updates", { "text-anchor": "middle", "font-size": 10.5 });
+    d.wire([[532, 250], [600, 250], [600, 318], [818, 318]], "advisories (fibre)", { at: [700, 312], color: "var(--live)", lc: "var(--live)" });
+    d.wire([[900, 356], [900, 398]], "one-way", { at: [908, 382], anchor: "start", color: "var(--live)", lc: "var(--live)" });
+    d.wire([[210, 370], [580, 370], [580, 230], [618, 200]], "", { dash: "4 3", arrow: false });
+    d.text(222, 364, "230 V AC to dock charger", { "font-size": 10.5 });
+    $("edgeCap").textContent = "Component view. The Jetson Orin Nano Super developer kit costs $399 since NVIDIA's July 2026 price rise (verified); an industrial fanless box costs more. The one-way gateway can be shared across a DSO's sites.";
+  }
+  let view = "block";
+  function renderViews() { view === "block" ? (nodeBlock(), edgeBlock()) : (nodeComp(), edgeComp()); }
+  $("viewSeg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; view = b.dataset.v; [...$("viewSeg").children].forEach(x => x.setAttribute("aria-pressed", x === b)); renderViews(); });
+  renderViews();
+
+  /* ===================== BOM ===================== */
+  // [name, low €, high €, source URL or null (null = our estimate), note]
+  const DK = "https://www.digikey.ie/en/products/";
+  const NODE = [
+    ["ESP32-S3-WROOM-1-N8R2 module", 3.94, 5.22, DK + "detail/espressif-systems/ESP32-S3-WROOM-1-N8R2/15200058", "DigiKey IE, 100→1 pcs; out of stock, restock late Nov 2026"],
+    ["ADXL355BEZ low-noise accelerometer", 57.53, 68.72, DK + "detail/analog-devices-inc/ADXL355BEZ/6557314", "DigiKey IE; the most expensive node part"],
+    ["ICS-43434 I²S microphone (or MMICT5837 successor)", 2.06, 3.48, DK + "detail/tdk-invensense/ICS-43434/6140298", "Marked obsolete; TDK successor ~€2.45"],
+    ["W5500 Ethernet controller", 1.91, 3.08, DK + "detail/wiznet/W5500/4425702", "DigiKey IE"],
+    ["RJ45 MagJack with magnetics (Würth 7499010211A)", 6.52, 7.74, DK + "result?keywords=7499010211A", "DigiKey IE"],
+    ["PoE PD module, Silvertel Ag9905M", 8.21, 13.80, "https://www.radiomag.com.de/product/ag9905m.html", "DigiKey IE €8.21; Radiomag €12.69–13.80"],
+    ["SX1262 LoRa module (Ebyte E22-900M22S)", 5, 6.5, "https://www.robotshop.com/products/ebyte-e22-900m22s-ebyte-tcxo-22dbm-6500m-sx1262-900mhz-new-lora-module-smd-wireless-transceiver-module", "USD 5.25–6.60, converted"],
+    ["ATECC608B secure element", 0.79, 0.80, DK + "result?keywords=ATECC608B-MAHDA-S", "DigiKey IE"],
+    ["Power, protection, supercap", 5, 10, null, "Our estimate"],
+    ["4-layer PCB + assembly (low volume)", 20, 45, null, "Our estimate"],
+    ["Die-cast enclosure, Hammond 1590Z120 (IP68)", 27, 32.34, DK + "result?keywords=1590Z120", "RS UK £23.66 to DigiKey IE €32.34"],
+    ["Glands, acoustic membrane, fence clamp", 8, 20, null, "Our estimate"],
+  ];
+  const SITE = [
+    ["Radiometric thermal camera 384×288 (Axis Q2101-TE / FLIR A50)", 2, 4100, 5200, "https://industry-electronics.com/axis/q2101-te-19-30-fps-lieske_1131778.htm", "Axis €5,110 ex VAT; FLIR A50 €4,149"],
+    ["Ultrasonic weather station (Gill MaxiMet GMX500 / Vaisala WXT536)", 1, 2200, 3200, "https://www.fondriest.com/gill-maximet-weather-stations.htm", "GMX500 USD 2,376–2,944; WXT536 from £2,735"],
+    ["Industrial edge computer (Seeed reComputer J3011, Orin Nano 8 GB)", 1, 920, 1000, "https://www.seeedstudio.com/reComputer-Industrial-J3011-p-5682.html", "USD 999; dev kit alone is USD 399"],
+    ["IEC 61850-3 PoE switch (Moxa PT-G503 / PT-G7728)", 1, 2800, 4000, "https://benl.rs-online.com/web/p/network-switches/0633530", "RS BE €2,822; Elmark ~€4,028"],
+    ["Industrial 5G router (Teltonika RUTX50)", 1, 428, 590, "https://industry-electronics.com/teltonika/rutx50000000-router-rutx50-5g-modem-wlan-lieske_1994193.htm", "€427.50 ex VAT"],
+    ["GNSS timing receiver", 1, 150, 400, null, "Our estimate"],
+    ["DC-DC 110 V DC → 24 V (MEAN WELL DDR-120D-24)", 1, 56, 61, DK + "result?keywords=DDR-120D-24", "DigiKey IE; out of stock to Feb 2027"],
+    ["1 TB industrial NVMe", 1, 120, 250, null, "Our estimate"],
+    ["Cabling, fibre, poles, mounting", 1, 1500, 4000, null, "Our estimate"],
+  ];
+  const tagFor = src => src ? `<a class="tag v" href="${src}" target="_blank" rel="noopener">Listed</a>` : '<span class="tag a">Estimate</span>';
+  function bom() {
+    const n = +$("nNodes").value; $("nNodesO").textContent = n;
+    const nl = NODE.reduce((a, r) => a + r[1], 0), nh = NODE.reduce((a, r) => a + r[2], 0);
+    let lo = n * nl, hi = n * nh;
+    const rows = [`<tr><td><b>Fence node</b> <span class="small muted">(${NODE.length} parts, itemised below)</span></td><td class="r">${n}</td><td class="r">${GS.eur(nl)}–${GS.eur(nh)}</td><td class="r">${GS.eur(n * nl)}–${GS.eur(n * nh)}</td><td><span class="tag p">Mixed</span></td></tr>`];
+    SITE.forEach(([name, q, l, h, src, note]) => { lo += q * l; hi += q * h; rows.push(`<tr><td>${name}<br><span class="xs muted">${note}</span></td><td class="r">${q}</td><td class="r">${GS.eur(l)}–${GS.eur(h)}</td><td class="r">${GS.eur(q * l)}–${GS.eur(q * h)}</td><td>${tagFor(src)}</td></tr>`); });
+    $("bomT").innerHTML = `<thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Unit</th><th class="r">Line</th><th>Price</th></tr></thead><tbody>${rows.join("")}</tbody>
+      <tfoot><tr><td>Sensing + edge per site</td><td></td><td></td><td class="r">${GS.eur(lo)}–${GS.eur(hi)}</td><td></td></tr></tfoot>`;
+    $("nodeT").innerHTML = `<thead><tr><th>Fence node part</th><th class="r">Unit</th><th>Price</th></tr></thead><tbody>` +
+      NODE.map(([name, l, h, src, note]) => `<tr><td>${name}<br><span class="xs muted">${note}</span></td><td class="r">€${l.toFixed(2)}–€${h.toFixed(2)}</td><td>${tagFor(src)}</td></tr>`).join("") +
+      `</tbody><tfoot><tr><td>Per node</td><td class="r">${GS.eur(nl)}–${GS.eur(nh)}</td><td></td></tr></tfoot>`;
+    const yr = [lo / 5, hi / 5];
+    $("bomNote").innerHTML = `<b>Check against the deck:</b> the deck assumes €12,500 of sensing per site (€2,500 a year over 5 years). Sourced prices put it at <b>${GS.eur(lo)}–${GS.eur(hi)}</b>, or ${GS.eur(yr[0])}–${GS.eur(yr[1])} a year. ${12500 < lo ? "<b>The deck figure is too low</b>: the two thermal cameras and the substation-rated switch alone cost more than €11k. Update the unit economics, or plan for cheaper cameras and a shared switch." : "The deck figure sits inside this range."}
+      <br><br>Not included: the robot (sold by quote; Spot launched at USD 74,500 in 2020 before payloads; ANYmal price not public), a drone-in-a-box (DJI Dock 2 + Matrice 3D about USD 14,000 at launch), and the one-way gateway (Waterfall, Owl, Fox-IT: quote only). Prices seen 2 Nov 2026, low volume, ex VAT; reseller prices vary 1.5–2× with lens, heater and power options. Some utilities restrict certain camera and drone vendors in critical infrastructure, so we list Axis and FLIR.`;
+  }
+  $("nNodes").addEventListener("input", bom); bom();
+
+  /* ===================== AI PIPELINE ===================== */
+  (function ai() {
+    const d = D($("aiSvg"));
+    const L = [["1 · Rules", ["wind, rain, switching,", "crew on site"]], ["2 · Detectors", ["person · animal · vehicle", "on thermal + video"]], ["3 · Site normal", ["per-site anomaly model", "time of day, season"]], ["4 · Fusion", ["late fusion, no double-count", "calibrated to base rate"]]];
+    L.forEach(([t, s], i) => d.box(20 + i * 200, 40, 170, 86, t, s, i === 3 ? "acc" : ""));
+    d.box(830, 40, 150, 86, "Escalate", ["robot + human"], "ok");
+    for (let i = 0; i < 4; i++) d.wire([[190 + i * 200, 83], [218 + i * 200, 83]], "", {});
+    const ex = ["benign → log", "animal → log", "normal → watch", "low → watch"];
+    ex.forEach((s, i) => { d.wire([[105 + i * 200, 126], [105 + i * 200, 176]], "", { color: "var(--ink-3)" }); d.text(105 + i * 200, 194, s, { "text-anchor": "middle", fill: "var(--ink-3)", "font-style": "italic" }); });
+    d.wire([[905, 126], [905, 230], [105, 230], [105, 210]], "", { dash: "4 3", color: "var(--ok)" });
+    d.text(500, 254, "Learn: operator-confirmed outcomes become labels; retraining runs under customer-approved change control", { "text-anchor": "middle", fill: "var(--ok)", "font-size": 11.5 });
+    d.text(500, 284, "Edge target: < 2 s from sensor event to cue", { "text-anchor": "middle", "font-size": 11, fill: "var(--live)" });
+  })();
+
+  /* ===================== ACCURACY TRAP ===================== */
+  function trap() {
+    const b = +$("br").value / 1000, r = +$("rc").value, f = +$("fp").value, E = +$("ev").value;
+    $("brO").textContent = (+$("br").value).toFixed(1); $("rcO").textContent = Math.round(r * 100) + "%"; $("fpO").textContent = (f * 100).toFixed(1) + "%"; $("evO").textContent = E;
+    const tp = b * r, fp = (1 - b) * f, acc = tp + (1 - b) * (1 - f), prec = tp / (tp + fp);
+    $("oAcc").textContent = (acc * 100).toFixed(1) + "%";
+    $("oPrec").textContent = (prec * 100).toFixed(prec < .1 ? 1 : 0) + "%";
+    $("oPrec").style.color = prec < .2 ? "var(--crit)" : prec < .5 ? "var(--warn)" : "var(--ok)";
+    const fa = E * fp; $("oFa").textContent = fa < 10 ? fa.toFixed(1) : Math.round(fa);
+    $("oMiss").textContent = (E * 52 * b * (1 - r)).toFixed(1);
+    $("oNote").innerHTML = `Of every 100 alarms, about <b>${Math.max(0, Math.round(100 - prec * 100))}</b> are false. Quote recall and false alarms per site per week, never accuracy alone. The robot and the human exist to absorb the false ones cheaply.`;
+  }
+  ["br", "rc", "fp", "ev"].forEach(id => $(id).addEventListener("input", trap)); trap();
+
+  document.addEventListener("gs:theme", () => { if (reduce) requestAnimationFrame(loop); });
+})();
+</script>
+</body>
+</html>

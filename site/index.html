@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grid Sentinel</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Grid Sentinel: cue-triggered verification for unmanned substations. Sense everywhere, move rarely.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/gs.css">
+<style>
+  .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: var(--s-6); align-items: center; padding-block: var(--s-5) var(--s-7); }
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } }
+  .hero h1 em { font-style: normal; color: var(--accent); }
+  .hero .cta { display: flex; gap: var(--s-3); flex-wrap: wrap; }
+  .yard-mini { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: var(--s-3); box-shadow: var(--shadow); }
+  .node-pulse { animation: pulse 2.4s ease-out infinite; }
+  .ev { display: grid; gap: 6px; }
+  .ev .big { font: 700 2.2rem/1 var(--f-display); font-variant-numeric: tabular-nums; }
+  .layers { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--panel); }
+  @media (max-width: 900px) { .layers { grid-template-columns: 1fr; } }
+  .layer { padding: var(--s-4); border-right: 1px solid var(--line); display: grid; gap: 8px; align-content: start; cursor: pointer; position: relative; }
+  .layer:last-child { border-right: 0; }
+  @media (max-width: 900px) { .layer { border-right: 0; border-bottom: 1px solid var(--line); } .layer:last-child { border-bottom: 0; } }
+  .layer .n { font: 600 .72rem var(--f-mono); color: var(--ink-3); letter-spacing: .1em; }
+  .layer h3 { font-size: 1.5rem; }
+  .layer.on { background: var(--ink); color: var(--bg); }
+  .layer.on .n, .layer.on p { color: color-mix(in srgb, var(--bg) 75%, transparent); }
+  .layer.verify h3 { color: var(--accent); }
+  .layer p { font-size: .86rem; color: var(--ink-2); }
+  .layer-detail { margin-top: var(--s-3); }
+  .tl { display: grid; gap: 0; }
+  .tl-row { display: grid; grid-template-columns: 96px 1fr auto; gap: var(--s-4); padding: 12px 0; border-bottom: 1px dashed var(--line); align-items: baseline; }
+  .tl-row:last-child { border-bottom: 0; }
+  .tl-row .t { font: 600 .9rem var(--f-mono); color: var(--accent-ink); }
+  .tl-row .who { font-size: .78rem; color: var(--ink-3); text-align: right; }
+  .tl-row.human .who { color: var(--ok); font-weight: 600; }
+  @media (max-width: 560px) { .tl-row { grid-template-columns: 1fr; gap: 2px; } .tl-row .who { text-align: left; } }
+  .explore a.card { text-decoration: none; color: inherit; display: grid; gap: 8px; transition: border-color .15s, transform .15s; }
+  .explore a.card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .explore .go { font: 600 .8rem var(--f-mono); color: var(--accent-ink); }
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+  .vs > div { padding: var(--s-4); background: var(--panel); }
+  .vs > div + div { border-left: 1px solid var(--line); }
+  .vs ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); font-size: .9rem; display: grid; gap: 6px; }
+  @media (max-width: 640px) { .vs { grid-template-columns: 1fr; } .vs > div + div { border-left: 0; border-top: 1px solid var(--line); } }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="stack">
+      <span class="eyebrow">Cue-triggered verification for unmanned substations</span>
+      <h1>Detection is not the bottleneck. <em>Verification</em> is.</h1>
+      <p class="lede">A fence alarm fires at 3 a.m. at an unmanned 110/20 kV yard. Was it the wind, a fox, or someone with a can of petrol? Grid Sentinel is our concept for answering that fast and safely: cheap sensors on every asset, AI at the site that rules out the harmless causes, and a docked robot that goes to look only when something stays unexplained. A human always makes the call.</p>
+      <div class="cta">
+        <a class="btn primary" href="simulation.html">Run the live substation</a>
+        <a class="btn" href="engineering.html">See the engineering</a>
+      </div>
+      <p class="small muted">Sense everywhere, move rarely. Sensors are cheap and robots are expensive, so robot time goes only where the edge AI cannot explain a signal.</p>
+    </div>
+    <figure class="yard-mini">
+      <svg id="heroYard" viewBox="0 0 520 360" role="img" aria-label="Animated substation: sensor nodes on the fence pulse constantly while the robot leaves its dock only when one alarm stays unexplained"></svg>
+      <figcaption id="heroCap">Every node watches all the time. The robot moves only on a cue it can't explain away.</figcaption>
+    </figure>
+  </div>
+
+  <!-- PROBLEM -->
+  <section id="problem">
+    <div class="grid-2">
+      <div class="stack">
+        <span class="eyebrow">The problem</span>
+        <h2>Alarms at unmanned sites are ambiguous, and confirming them is slow and dangerous</h2>
+        <div class="prose">
+          <p>Europe's ~2,500 distribution system operators (DSOs) run thousands of fenced HV/MV yards with nobody on site, watched remotely from a control room. When a sensor trips at night, the operator has two bad options.</p>
+        </div>
+        <div class="vs">
+          <div><h4>Wait</h4><ul><li>Risk that it was real</li><li>The outage itself confirms the attack</li></ul></div>
+          <div><h4>Send a crew</h4><ul><li>Tens of minutes to hours at night</li><li>Costly call-out</li><li>Crew walks into a live HV yard that may have been tampered with</li></ul></div>
+        </div>
+        <div class="callout"><b>Our thesis is unvalidated.</b> The threat is verified. Whether verification is the real bottleneck is the first thing we test: 15–20 interviews across three or more DSOs, plus one DSO's alarm logs.</div>
+      </div>
+      <div class="grid-2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:var(--s-3)">
+        <div class="panel tight ev"><span class="tag v">Verified</span><span class="big num">~50,000</span><p class="small">customers lost power for ~60 h after arson at two 110 kV pylons. Berlin, Sep 2025. The operator learned from a fire report: a <em>detection</em> gap, not proof of our thesis.</p></div>
+        <div class="panel tight ev"><span class="tag v">Verified</span><span class="big num">45,000 + 2,200</span><p class="small">households and businesses cut off for days after a cable-bridge arson. Berlin, Jan 2026.</p></div>
+        <div class="panel tight ev"><span class="tag v">Verified</span><span class="big num">≥ 11</span><p class="small">attacks damaged European critical infrastructure in 2024; utility preparedness "uneven" (Eurelectric, Feb 2026).</p></div>
+        <div class="panel tight ev"><span class="tag v">Verified</span><span class="big num">40%</span><p class="small">of EU distribution grids are over 40 years old; €584bn grid investment needed this decade (European Commission).</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FIVE LAYERS -->
+  <section id="solution">
+    <div class="stack-lg">
+      <div class="stack">
+        <span class="eyebrow">The solution · five layers</span>
+        <h2>Sense → Understand → Verify → Respond → Learn</h2>
+        <p class="lede">Select a layer to see what happens there and whether we buy it or build it.</p>
+      </div>
+      <div class="layers" id="layers" role="tablist"></div>
+      <div class="panel layer-detail" id="layerDetail" role="tabpanel" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- WORKFLOW -->
+  <section id="workflow">
+    <div class="stack-lg">
+      <div class="stack">
+        <span class="eyebrow">Decision path</span>
+        <h2>Every signal takes one of four exits, and the operator is always told</h2>
+        <p class="lede">Benign signals are logged, low scores are watched, and unexplained ones go to the robot. If the robot can't safely go, the operator is alerted anyway.</p>
+      </div>
+      <figure>
+        <div class="svg-wrap"><svg viewBox="0 0 1000 300" role="img" aria-label="Workflow: sensor signal, explained by rules, AI fusion, above threshold, safe to send robot, robot captures evidence, operator decides, advisory alert" id="flow"></svg></div>
+        <figcaption>The robot never goes when a crew is on site, the weather is unsafe, it is not charged or localised, or the target sits inside an electrical clearance zone. Output is advisory only: no breaker is ever switched.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- INCIDENT -->
+  <section id="incident">
+    <div class="grid-2">
+      <div class="stack">
+        <span class="eyebrow">A worked incident</span>
+        <h2>02:47 to 02:51: four minutes from sensor to verified decision</h2>
+        <p class="lede">The timings are assumptions for the simulation to measure, not field results. The 0.82 score is a ranking, not an 82% probability; it becomes a probability only after calibration on real data.</p>
+        <div class="row"><span class="tag i">Illustrative</span><a class="btn primary" href="simulation.html#intruder">Replay it in the simulator</a></div>
+      </div>
+      <div class="panel">
+        <div class="tl">
+          <div class="tl-row"><span class="t">02:47:00</span><span>Fence node hears and feels an impact. Thermal camera sees a warm, upright, human-sized shape. Wind is 2 m/s.</span><span class="who">Sensors</span></div>
+          <div class="tl-row"><span class="t">02:47:02</span><span>Rules can't explain it: no wind, no switching logged, no crew checked in. Fusion scores 0.82 and raises a cue.</span><span class="who">Edge AI</span></div>
+          <div class="tl-row"><span class="t">02:47:03</span><span>Dispatcher checks robot charged, weather safe, localised, nobody on site. Robot sent; control room alerted at once.</span><span class="who">Dispatcher</span></div>
+          <div class="tl-row"><span class="t">02:48–50</span><span>Robot leaves its dock and streams signed thermal video from the fence.</span><span class="who">Robot, supervised</span></div>
+          <div class="tl-row human"><span class="t">02:51</span><span>Operator sees a person cutting the fence, confirms, calls police; crew sent in briefed.</span><span class="who">Human, always</span></div>
+          <div class="tl-row"><span class="t">Later</span><span>Event labelled and used in the next controlled model update.</span><span class="who">Data pipeline</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TERMS -->
+  <section id="terms">
+    <div class="grid-2">
+      <div class="stack">
+        <span class="eyebrow">Words that are not interchangeable</span>
+        <h2>What Grid Sentinel does, and what it does not</h2>
+        <p class="lede">Grid Sentinel detects, classifies and helps verify. People respond. Police establish who did it. Nothing here physically stops anyone.</p>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Term</th><th>Meaning</th><th>Who</th></tr></thead>
+          <tbody>
+            <tr><td><b>Detection</b></td><td>Noticing that something unusual happened</td><td>Sensors</td></tr>
+            <tr><td><b>Classification</b></td><td>Deciding what it probably was, with a confidence score</td><td>Edge AI</td></tr>
+            <tr><td><b>Verification</b></td><td>Confirming with independent, better evidence</td><td>Robot + human</td></tr>
+            <tr><td><b>Response</b></td><td>Police, crew, DSO operations</td><td>Humans only</td></tr>
+            <tr><td><b>Attribution</b></td><td>Establishing who did it; signed evidence only helps</td><td>Police / legal</td></tr>
+            <tr><td><b>Prevention</b></td><td>Stopping harm. Not something Grid Sentinel does.</td><td>n/a</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- EXPLORE -->
+  <section id="explore" class="explore">
+    <div class="stack-lg">
+      <div class="stack"><span class="eyebrow">Explore the concept</span><h2>Five working models</h2></div>
+      <div class="grid-3">
+        <a class="panel card" href="simulation.html"><span class="eyebrow">Interactive</span><h3>Live substation</h3><p class="small muted">Trigger wind, a fox, rain, a crew visit, an intruder or a hot joint and follow the signal from sensor to operator.</p><span class="go">Open simulator →</span></a>
+        <a class="panel card" href="fleet.html"><span class="eyebrow">Interactive</span><h3>Robot fleet</h3><p class="small muted">How many sites can one robot really serve? Queueing model and a 30-day Monte Carlo run.</p><span class="go">Open fleet model →</span></a>
+        <a class="panel card" href="engineering.html"><span class="eyebrow">For engineers</span><h3>Engineering</h3><p class="small muted">Animated sensors, system architecture, sensor-node and edge-box circuits, bill of materials, AI pipeline.</p><span class="go">Open engineering →</span></a>
+        <a class="panel card" href="economics.html"><span class="eyebrow">Interactive</span><h3>Costs &amp; ROI</h3><p class="small muted">Unit economics with the costs the deck leaves out, margin against sites per robot, customer value, market size.</p><span class="go">Open economics →</span></a>
+        <a class="panel card" href="team.html"><span class="eyebrow">Plan</span><h3>Team &amp; roadmap</h3><p class="small muted">The talent each stage needs, TRL 2 to 7, funding stages A–C, and the results that would make us stop.</p><span class="go">Open roadmap →</span></a>
+        <div class="panel card"><span class="eyebrow">Our ask</span><h3>Three things</h3><p class="small muted">1. Funding for expertise and prototyping. 2. An industry mentor who can open the door to one DSO's real alarm data. 3. Lab time for a TRL 4 bench test (EMI, thermal).</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/gs.js"></script>
+<script>
+/* ---------- hero animation ---------- */
+(function () {
+  const { el } = GS;
+  const svg = document.getElementById("heroYard");
+  const cap = document.getElementById("heroCap");
+  // fence
+  el("rect", { x: 20, y: 20, width: 480, height: 320, fill: "none", stroke: "currentColor", "stroke-width": 1.5, "stroke-dasharray": "6 4", opacity: .55 }, svg);
+  // busbar + bays
+  el("line", { x1: 90, y1: 120, x2: 430, y2: 120, stroke: "var(--live)", "stroke-width": 4 }, svg);
+  [140, 260, 380].forEach(x => {
+    el("line", { x1: x, y1: 20, x2: x, y2: 120, stroke: "var(--live)", "stroke-width": 2 }, svg);
+    el("rect", { x: x - 9, y: 62, width: 18, height: 18, fill: "var(--panel)", stroke: "currentColor", "stroke-width": 1.5 }, svg);
+  });
+  [180, 340].forEach(x => {
+    el("line", { x1: x, y1: 120, x2: x, y2: 170, stroke: "var(--live)", "stroke-width": 2 }, svg);
+    el("circle", { cx: x - 8, cy: 190, r: 18, fill: "none", stroke: "currentColor", "stroke-width": 1.6 }, svg);
+    el("circle", { cx: x + 8, cy: 190, r: 18, fill: "none", stroke: "currentColor", "stroke-width": 1.6 }, svg);
+    el("rect", { x: x - 52, y: 140, width: 104, height: 100, fill: "var(--hatch)", stroke: "var(--crit)", "stroke-width": .8, "stroke-dasharray": "3 3" }, svg);
+  });
+  const t1 = el("text", { x: 260, y: 268, "text-anchor": "middle", "font-size": 11, fill: "var(--crit)" }, svg); t1.textContent = "clearance zones: robot geofenced out";
+  // control building + dock
+  el("rect", { x: 40, y: 270, width: 70, height: 50, fill: "var(--panel-2)", stroke: "currentColor", "stroke-width": 1.2 }, svg);
+  const cb = el("text", { x: 75, y: 299, "text-anchor": "middle", "font-size": 10, fill: "var(--ink-2)" }, svg); cb.textContent = "control bldg";
+  el("rect", { x: 130, y: 300, width: 36, height: 22, fill: "none", stroke: "var(--accent)", "stroke-width": 1.5 }, svg);
+  const dk = el("text", { x: 148, y: 335, "text-anchor": "middle", "font-size": 10, fill: "var(--accent-ink)" }, svg); dk.textContent = "dock";
+  // nodes on fence
+  const nodes = [];
+  for (let i = 0; i < 6; i++) nodes.push([60 + i * 80, 20]);
+  for (let i = 1; i < 4; i++) nodes.push([500, 20 + i * 80]);
+  for (let i = 0; i < 6; i++) nodes.push([460 - i * 80 + 0, 340]);
+  for (let i = 1; i < 4; i++) nodes.push([20, 340 - i * 80]);
+  const pulses = nodes.map(([x, y], i) => {
+    const p = el("circle", { cx: x, cy: y, r: 5, fill: "none", stroke: "var(--live)", "stroke-width": 1.2, class: "node-pulse", style: `animation-delay:${(i * .37) % 2.4}s` }, svg);
+    el("circle", { cx: x, cy: y, r: 4, fill: "var(--live)" }, svg);
+    return p;
+  });
+  // robot
+  const robot = el("g", {}, svg);
+  el("rect", { x: -9, y: -6, width: 18, height: 12, rx: 3, fill: "var(--accent)" }, robot);
+  el("circle", { cx: 6, cy: 0, r: 2, fill: "var(--panel)" }, robot);
+  const alarm = el("circle", { cx: 0, cy: 0, r: 10, fill: "none", stroke: "var(--crit)", "stroke-width": 2, opacity: 0 }, svg);
+  const dock = [148, 311];
+  // waypoints on the roadway (outside hatched zones)
+  const road = { left: 85, right: 440, top: 290 };
+  const target = [420, 340]; // fence node on south side
+  const path = [dock, [148, 290], [430, 290], [430, 325]];
+  let phase = "idle", t = 0, seg = 0, pos = dock.slice(), lastSwitch = performance.now();
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  robot.setAttribute("transform", `translate(${dock[0]},${dock[1]})`);
+  function setCap(s) { cap.textContent = s; }
+  function frame(now) {
+    const dt = now - lastSwitch;
+    if (phase === "idle" && dt > 3500) { phase = "cue"; lastSwitch = now; alarm.setAttribute("cx", target[0]); alarm.setAttribute("cy", target[1]); alarm.setAttribute("opacity", 1); setCap("02:47 Fence node, south side: impact + warm upright shape. Rules can't explain it, so a cue is raised."); }
+    else if (phase === "cue" && dt > 1500) { phase = "go"; lastSwitch = now; seg = 0; setCap("Dispatcher checks pass: charged, weather OK, no crew. Robot leaves the dock; operator already alerted."); }
+    else if (phase === "go") {
+      const a = path[seg], b = path[seg + 1];
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const k = Math.min(1, (dt / 1000) * 120 / L);
+      pos = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+      if (k >= 1) { seg++; lastSwitch = now; if (seg >= path.length - 1) { phase = "look"; setCap("Robot streams signed thermal video from outside the clearance zone. The operator decides."); } }
+    } else if (phase === "look" && dt > 2600) { phase = "back"; lastSwitch = now; seg = path.length - 1; alarm.setAttribute("opacity", 0); setCap("Operator confirms, calls police, sends a briefed crew. Robot returns to its dock."); }
+    else if (phase === "back") {
+      const a = path[seg], b = path[seg - 1];
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const k = Math.min(1, (dt / 1000) * 120 / L);
+      pos = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+      if (k >= 1) { seg--; lastSwitch = now; if (seg <= 0) { phase = "idle"; pos = dock.slice(); setCap("Every node watches all the time. The robot moves only on a cue it can't explain away."); } }
+    }
+    robot.setAttribute("transform", `translate(${pos[0]},${pos[1]})`);
+    if (phase === "cue" || phase === "go" || phase === "look") alarm.setAttribute("r", 8 + 4 * Math.abs(Math.sin(now / 250)));
+    requestAnimationFrame(frame);
+  }
+  if (!reduce) requestAnimationFrame(frame);
+})();
+
+/* ---------- layers ---------- */
+(function () {
+  const L = [
+    { k: "sense", n: "01", h: "Sense", s: "Low-cost nodes on every asset", body: "Persistent nodes: thermal and optical cameras, acoustic and vibration (MEMS) sensors, partial-discharge sensors later, plus a weather station for context. The weather station is the cheapest big win: most nuisance alarms are weather.", bb: ["Bought", "p"], eng: "engineering.html#sensors" },
+    { k: "understand", n: "02", h: "Understand", s: "Edge AI rules out benign causes", body: "An edge computer at the site (NVIDIA Jetson-class) fuses the signals in four layers: rules for clearly explainable events, proven detectors for people, animals and vehicles, site-specific anomaly detection, and escalation of whatever remains unexplained. We learn what is normal, because real attacks are too rare to learn from.", bb: ["Built: fusion + context classifier", "p"], eng: "engineering.html#ai" },
+    { k: "verify", n: "03", h: "Verify", s: "Robot goes only on cue", body: "A docked ground robot in the yard, or a drone along line corridors, is sent on cue and captures close-range, time-stamped, digitally signed video and thermal evidence. Geofences keep the whole robot outside electrical clearance zones.", bb: ["Robots bought; dispatcher + evidence chain built", "p"], eng: "fleet.html" },
+    { k: "respond", n: "04", h: "Respond", s: "A human decides", body: "The operator reviews the evidence and decides. The system sends an advisory alert to the DSO's security system first and to SCADA only through an approved one-way interface (IEC 61850, IEC 60870-5-104 or Modbus). It never opens or closes a breaker.", bb: ["Built: advisory gateway", "p"], eng: "engineering.html#architecture" },
+    { k: "learn", n: "05", h: "Learn", s: "Verified events become labels", body: "Confirmed events become labelled data. Models are retrained periodically under controlled, customer-approved procedures, and tested on sites and seasons the model has never seen.", bb: ["Built", "p"], eng: "engineering.html#ai" },
+  ];
+  const wrap = document.getElementById("layers"), det = document.getElementById("layerDetail");
+  function show(i) {
+    [...wrap.children].forEach((c, j) => { c.classList.toggle("on", i === j); c.setAttribute("aria-selected", i === j); });
+    const l = L[i];
+    det.innerHTML = `<div class="panel-h"><h3>${l.n} · ${l.h}</h3><span class="tag ${l.bb[1]}">${l.bb[0]}</span></div><p style="max-width:var(--measure);color:var(--ink-2)">${l.body}</p><p style="margin-top:10px"><a href="${l.eng}">Go deeper →</a></p>`;
+  }
+  L.forEach((l, i) => {
+    const d = document.createElement("div");
+    d.className = "layer" + (l.k === "verify" ? " verify" : "");
+    d.setAttribute("role", "tab"); d.tabIndex = 0;
+    d.innerHTML = `<span class="n">${l.n}</span><h3>${l.h}</h3><p>${l.s}</p>`;
+    d.addEventListener("click", () => show(i));
+    d.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); show(i); } });
+    wrap.append(d);
+  });
+  show(2);
+})();
+
+/* ---------- workflow diagram ---------- */
+(function () {
+  const { el } = GS;
+  const svg = document.getElementById("flow");
+  const defs = el("defs", {}, svg);
+  const mk = el("marker", { id: "ar", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, defs);
+  el("path", { d: "M0,0 L10,5 L0,10 z", fill: "currentColor" }, mk);
+  const W = 200, H = 64;
+  const box = (x, y, t, s, kind) => {
+    const g = el("g", {}, svg);
+    el("rect", { x, y, width: W, height: H, rx: 6, fill: kind === "dec" ? "var(--warn-bg)" : kind === "human" ? "var(--ok-bg)" : "var(--panel)", stroke: kind === "dec" ? "var(--accent)" : kind === "human" ? "var(--ok)" : "currentColor", "stroke-width": 1.3 }, g);
+    const a = el("text", { x: x + W / 2, y: y + 26, "text-anchor": "middle", "font-size": 14, "font-weight": 600 }, g); a.textContent = t;
+    const b = el("text", { x: x + W / 2, y: y + 45, "text-anchor": "middle", "font-size": 11.5, fill: "var(--ink-2)" }, g); b.textContent = s;
+  };
+  const arrow = (x1, y1, x2, y2, label, color, lx, ly) => {
+    el("path", { d: `M${x1},${y1} L${x2},${y2}`, stroke: color || "currentColor", "stroke-width": 1.4, fill: "none", "marker-end": "url(#ar)", style: color ? `color:${color}` : "" }, svg);
+    if (label) { const t = el("text", { x: lx ?? (x1 + x2) / 2, y: ly ?? (y1 + y2) / 2 - 6, "text-anchor": "middle", "font-size": 11, fill: color || "var(--ink-2)", "font-style": "italic" }, svg); t.textContent = label; }
+  };
+  const xs = [10, 263, 516, 789];
+  box(xs[0], 20, "Sensor signal", "thermal · sound · vibration", "");
+  box(xs[1], 20, "Explained by rules?", "wind · rain · SCADA · crew", "dec");
+  box(xs[2], 20, "AI fusion", "score + uncertainty", "");
+  box(xs[3], 20, "Above threshold?", "or unfamiliar pattern", "dec");
+  box(xs[0], 196, "Safe to send robot?", "charged · weather · no crew", "dec");
+  box(xs[1], 196, "Robot captures evidence", "signed video + thermal", "");
+  box(xs[2], 196, "Operator decides", "always a human", "human");
+  box(xs[3], 196, "Advisory alert", "police / crew; event labelled", "");
+  arrow(210, 52, 261, 52, "", "", 0, 0);
+  arrow(463, 52, 514, 52, "no", "", 488, 44);
+  arrow(716, 52, 787, 52, "", "", 0, 0);
+  arrow(363, 84, 363, 118, "", "var(--ok)");
+  const e1 = el("text", { x: 363, y: 134, "text-anchor": "middle", "font-size": 11.5, fill: "var(--ok)", "font-style": "italic" }, svg); e1.textContent = "yes → log as benign";
+  arrow(889, 84, 889, 118, "", "var(--ink-3)");
+  const e2 = el("text", { x: 889, y: 134, "text-anchor": "middle", "font-size": 11.5, fill: "var(--ink-3)", "font-style": "italic" }, svg); e2.textContent = "no → log and watch";
+  el("path", { d: "M940,84 L940,160 L110,160 L110,194", stroke: "var(--accent)", "stroke-width": 1.6, fill: "none", "marker-end": "url(#ar)", style: "color:var(--accent)" }, svg);
+  const e3 = el("text", { x: 960, y: 150, "text-anchor": "end", "font-size": 11.5, fill: "var(--accent-ink)", "font-weight": 600 }, svg); e3.textContent = "yes → cue";
+  arrow(210, 228, 261, 228, "yes");
+  arrow(463, 228, 514, 228, "stream");
+  arrow(716, 228, 787, 228, "confirm");
+  el("path", { d: "M110,260 L110,284 L616,284 L616,262", stroke: "var(--crit)", "stroke-width": 1.4, fill: "none", "marker-end": "url(#ar)", style: "color:var(--crit)", "stroke-dasharray": "5 4" }, svg);
+  const e4 = el("text", { x: 360, y: 279, "text-anchor": "middle", "font-size": 11.5, fill: "var(--crit)", "font-style": "italic" }, svg); e4.textContent = "no → alert operator anyway, with the reason";
+})();
+</script>
+</body>
+</html>
